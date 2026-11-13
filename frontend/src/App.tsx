@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Component, useEffect, type ErrorInfo, type ReactNode } from "react";
 import { useAuth } from "react-oidc-context";
 import { useRouter } from "./lib/router";
 import { setSigninRedirect } from "./api/client";
@@ -8,6 +8,46 @@ import { StudentsPage } from "./pages/StudentsPage";
 import { StudentPage } from "./pages/StudentPage";
 import { LessonsPage } from "./pages/LessonsPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-muted-foreground">Щось пішло не так. Оновіть сторінку.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PageContent({ path }: { path: string }) {
+  const studentMatch = path.match(/^\/students\/([^/]+)$/);
+  if (path === "/") return <DashboardPage />;
+  if (path === "/students") return <StudentsPage />;
+  if (studentMatch) return <StudentPage id={studentMatch[1]} />;
+  if (path === "/lessons") return <LessonsPage />;
+  if (path === "/payments") return <PaymentsPage />;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center space-y-2">
+        <p className="text-2xl font-bold">404</p>
+        <p className="text-muted-foreground">Сторінку не знайдено</p>
+      </div>
+    </div>
+  );
+}
 
 export function App() {
   const auth = useAuth();
@@ -32,21 +72,9 @@ export function App() {
     return <LoginPage />;
   }
 
-  if (path === "/") return <DashboardPage />;
-  if (path === "/students") return <StudentsPage />;
-
-  const studentMatch = path.match(/^\/students\/([^/]+)$/);
-  if (studentMatch) return <StudentPage id={studentMatch[1]} />;
-
-  if (path === "/lessons") return <LessonsPage />;
-  if (path === "/payments") return <PaymentsPage />;
-
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-2">
-        <p className="text-2xl font-bold">404</p>
-        <p className="text-muted-foreground">Сторінку не знайдено</p>
-      </div>
-    </div>
+    <ErrorBoundary key={path}>
+      <PageContent path={path} />
+    </ErrorBoundary>
   );
 }
