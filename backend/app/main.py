@@ -2,7 +2,7 @@ from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import health, lessons, me, students
+from app.api import health, lessons, me, payments, students
 from app.schemas.common import ErrorResponse
 from app.services.errors import NotFound, StudentArchived, StudentNotFound
 from app.settings import settings
@@ -47,4 +47,5 @@ api.include_router(health.router)
 api.include_router(me.router, responses=UNAUTHORIZED)
 api.include_router(students.router, responses={**UNAUTHORIZED, **NOT_FOUND})
 api.include_router(lessons.router, responses={**UNAUTHORIZED, **NOT_FOUND})
+api.include_router(payments.router, responses={**UNAUTHORIZED, **NOT_FOUND})
 app.include_router(api)
