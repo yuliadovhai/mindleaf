@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSession } from "../auth/session";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -117,6 +124,9 @@ export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>{initial ? "Редагувати заняття" : "Нове заняття"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Форма для {initial ? "редагування" : "створення"} заняття
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           {!initial && (

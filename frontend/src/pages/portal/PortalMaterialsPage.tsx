@@ -32,7 +32,7 @@ export function PortalMaterialsPage() {
         {data?.map((m) => (
           <div
             key={m.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
           >
             <div className="flex items-start gap-3">
               <FileText className="h-5 w-5 mt-0.5 text-primary" />

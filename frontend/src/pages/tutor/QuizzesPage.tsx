@@ -66,7 +66,7 @@ export function QuizzesPage() {
                 return (
                   <div
                     key={q.id}
-                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 ${draft ? "border-amber-300 bg-amber-50" : "bg-card"}`}
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-4 py-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)] ${draft ? "border-amber-300 bg-amber-50" : "border-border bg-card"}`}
                   >
                     <span>
                       <span className="flex items-center gap-2 font-medium">
@@ -131,7 +131,7 @@ export function QuizzesPage() {
                 <button
                   key={a.id}
                   onClick={() => navigate(`/quiz-assignments/${a.id}`)}
-                  className="w-full flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3 text-left hover:bg-muted/50"
+                  className="w-full flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-accent/40 transition-colors shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
                 >
                   <span>
                     <span className="block font-medium">

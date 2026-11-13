@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import type React from "react";
 import { useSession } from "../auth/session";
 import { listStudents, archiveStudent } from "../api/students";
 import type { Student } from "../api/types";
@@ -18,7 +19,24 @@ import {
 } from "../components/ui/table";
 import { formatMoney } from "../lib/money";
 import { useRouter } from "../lib/router";
-import { Plus, Archive, Pencil, Eye } from "lucide-react";
+import { Plus, Archive, Pencil, Eye, Users as UsersIcon } from "lucide-react";
+
+function EmptyState({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
+        <Icon className="h-6 w-6 text-primary/60" />
+      </div>
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
 
 export function StudentsPage() {
   const { token } = useSession();
@@ -103,9 +121,10 @@ export function StudentsPage() {
         ) : error ? (
           <ErrorMessage message={error} />
         ) : students.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">
-            {showArchived ? "Архівованих учнів немає" : "Учнів поки немає"}
-          </p>
+          <EmptyState
+            icon={UsersIcon}
+            text={showArchived ? "Архівованих учнів немає" : "Учнів поки немає"}
+          />
         ) : (
           <Table>
             <TableHeader>

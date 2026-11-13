@@ -30,7 +30,25 @@ import {
 import { formatMoney } from "../lib/money";
 import { formatDateTime, localInputToIso, todayKyiv, addDays } from "../lib/datetime";
 import { useRouter } from "../lib/router";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, CalendarDays as CalendarDaysIcon } from "lucide-react";
+import type React from "react";
+
+function EmptyState({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
+        <Icon className="h-6 w-6 text-primary/60" />
+      </div>
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
 
 const STATUS_OPTIONS: { value: LessonStatus | "all"; label: string }[] = [
   { value: "all", label: "Всі статуси" },
@@ -173,7 +191,7 @@ export function LessonsPage() {
         ) : error ? (
           <ErrorMessage message={error} />
         ) : lessons.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">Занять не знайдено</p>
+          <EmptyState icon={CalendarDaysIcon} text="Занять не знайдено" />
         ) : (
           <Table>
             <TableHeader>

@@ -35,7 +35,27 @@ import {
   Phone,
   MessageSquare,
   User,
+  CalendarDays,
+  CreditCard,
 } from "lucide-react";
+import type React from "react";
+
+function EmptyState({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
+        <Icon className="h-6 w-6 text-primary/60" />
+      </div>
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
 
 const METHOD_LABEL = { cash: "Готівка", card: "Картка", transfer: "Переказ" } as const;
 
@@ -164,7 +184,7 @@ export function StudentPage({ id }: StudentPageProps) {
 
         {/* Info + Balance */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="sm:col-span-2 rounded-lg border bg-card p-4 space-y-2 text-sm">
+          <div className="sm:col-span-2 rounded-2xl border border-border bg-card p-4 space-y-2 text-sm shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
             {student.phone && (
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
@@ -192,7 +212,7 @@ export function StudentPage({ id }: StudentPageProps) {
           </div>
 
           <div
-            className={`rounded-lg border p-4 flex flex-col items-center justify-center ${
+            className={`rounded-2xl border p-4 flex flex-col items-center justify-center shadow-[0_4px_20px_rgba(109,93,246,0.06)] ${
               student.balance < 0
                 ? "bg-destructive/5 border-destructive/30"
                 : student.balance > 0
@@ -219,32 +239,32 @@ export function StudentPage({ id }: StudentPageProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b">
+        <div className="flex gap-1 rounded-full bg-muted p-1 w-fit">
           <button
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`px-4 py-1.5 text-sm transition-colors ${
               tab === "lessons"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "rounded-full bg-white shadow-sm text-primary font-semibold"
+                : "text-muted-foreground hover:text-foreground rounded-full"
             }`}
             onClick={() => setTab("lessons")}
           >
             Заняття ({lessons.length})
           </button>
           <button
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`px-4 py-1.5 text-sm transition-colors ${
               tab === "payments"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "rounded-full bg-white shadow-sm text-primary font-semibold"
+                : "text-muted-foreground hover:text-foreground rounded-full"
             }`}
             onClick={() => setTab("payments")}
           >
             Оплати ({payments.length})
           </button>
           <button
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`px-4 py-1.5 text-sm transition-colors ${
               tab === "access"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "rounded-full bg-white shadow-sm text-primary font-semibold"
+                : "text-muted-foreground hover:text-foreground rounded-full"
             }`}
             onClick={() => setTab("access")}
           >
@@ -272,7 +292,7 @@ export function StudentPage({ id }: StudentPageProps) {
               </Button>
             </div>
             {lessons.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Занять поки немає</p>
+              <EmptyState icon={CalendarDays} text="Занять поки немає" />
             ) : (
               <Table>
                 <TableHeader>
@@ -355,7 +375,7 @@ export function StudentPage({ id }: StudentPageProps) {
               </Button>
             </div>
             {payments.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Оплат поки немає</p>
+              <EmptyState icon={CreditCard} text="Оплат поки немає" />
             ) : (
               <Table>
                 <TableHeader>

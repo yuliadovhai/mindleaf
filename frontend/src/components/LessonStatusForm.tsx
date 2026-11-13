@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useSession } from "../auth/session";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -52,6 +59,9 @@ export function LessonStatusForm({ open, onClose, onSaved, lesson }: LessonStatu
       <DialogContent className="sm:max-w-[360px]">
         <DialogHeader>
           <DialogTitle>Змінити статус заняття</DialogTitle>
+          <DialogDescription className="sr-only">
+            Оберіть новий статус для цього заняття
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           <div className="space-y-1">

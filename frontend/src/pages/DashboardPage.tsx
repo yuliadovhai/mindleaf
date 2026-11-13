@@ -12,6 +12,26 @@ import { formatMoney } from "../lib/money";
 import { formatDateTime } from "../lib/datetime";
 import { useRouter } from "../lib/router";
 import { TrendingUp, AlertCircle, Calendar, Clock, ClipboardCheck, ListChecks } from "lucide-react";
+import type React from "react";
+
+function IconSquare({
+  icon: Icon,
+  bg,
+  color,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  bg: string;
+  color: string;
+}) {
+  return (
+    <div
+      className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0"
+      style={{ backgroundColor: bg }}
+    >
+      <Icon className="h-5 w-5" style={{ color }} />
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const { token } = useSession();
@@ -43,7 +63,6 @@ export function DashboardPage() {
   if (!data) return null;
 
   const dateLabel = new Date(data.date + "T00:00:00").toLocaleDateString("uk-UA", {
-    weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -53,7 +72,7 @@ export function DashboardPage() {
     <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold capitalize">{dateLabel}</h1>
+          <h1 className="text-2xl font-bold">{dateLabel}</h1>
         </div>
 
         {/* Stat cards */}
@@ -61,7 +80,7 @@ export function DashboardPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
+                <IconSquare icon={TrendingUp} bg="#E6F8EF" color="#10B981" />
                 Дохід за місяць
               </CardTitle>
             </CardHeader>
@@ -72,7 +91,7 @@ export function DashboardPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
+                <IconSquare icon={AlertCircle} bg="#FFF1E6" color="#F97316" />
                 Загальний борг
               </CardTitle>
             </CardHeader>
@@ -83,7 +102,7 @@ export function DashboardPage() {
           <Card className="cursor-pointer hover:bg-muted/50" onClick={() => navigate("/homework")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4" />
+                <IconSquare icon={ClipboardCheck} bg="#EEEBFF" color="#6D5DF6" />
                 ДЗ на перевірку
               </CardTitle>
             </CardHeader>
@@ -94,7 +113,7 @@ export function DashboardPage() {
           <Card className="cursor-pointer hover:bg-muted/50" onClick={() => navigate("/quizzes")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <ListChecks className="h-4 w-4" />
+                <IconSquare icon={ListChecks} bg="#E8F1FF" color="#3B82F6" />
                 Тести на перевірку
               </CardTitle>
             </CardHeader>
@@ -107,73 +126,77 @@ export function DashboardPage() {
         {/* Today */}
         <section>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+            <IconSquare icon={Calendar} bg="#E8F1FF" color="#3B82F6" />
             Сьогодні
             {data.today.length > 0 && <Badge variant="secondary">{data.today.length}</Badge>}
           </h2>
           {data.today.length === 0 ? (
             <p className="text-muted-foreground text-sm">Занять сьогодні немає</p>
           ) : (
-            <div className="space-y-2">
-              {data.today.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => navigate(`/students/${lesson.student_id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-mono text-muted-foreground">
-                      {formatDateTime(lesson.starts_at).slice(12)}
-                    </span>
-                    <span className="font-medium">{lesson.student_full_name}</span>
-                    {lesson.topic && (
-                      <span className="text-sm text-muted-foreground">— {lesson.topic}</span>
-                    )}
+            <Card>
+              <div className="divide-y divide-border/60">
+                {data.today.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-accent/40 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/students/${lesson.student_id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-mono text-muted-foreground">
+                        {formatDateTime(lesson.starts_at).slice(12)}
+                      </span>
+                      <span className="font-medium">{lesson.student_full_name}</span>
+                      {lesson.topic && (
+                        <span className="text-sm text-muted-foreground">— {lesson.topic}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {lesson.duration_minutes} хв
+                      </span>
+                      <LessonStatusBadge status={lesson.status} />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {lesson.duration_minutes} хв
-                    </span>
-                    <LessonStatusBadge status={lesson.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </section>
 
         {/* Upcoming */}
         <section>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+            <IconSquare icon={Clock} bg="#EEEBFF" color="#6D5DF6" />
             Найближчі 7 днів
             {data.upcoming.length > 0 && <Badge variant="secondary">{data.upcoming.length}</Badge>}
           </h2>
           {data.upcoming.length === 0 ? (
             <p className="text-muted-foreground text-sm">Запланованих занять немає</p>
           ) : (
-            <div className="space-y-2">
-              {data.upcoming.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => navigate(`/students/${lesson.student_id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground w-32">
-                      {formatDateTime(lesson.starts_at)}
+            <Card>
+              <div className="divide-y divide-border/60">
+                {data.upcoming.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-accent/40 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/students/${lesson.student_id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground w-32">
+                        {formatDateTime(lesson.starts_at)}
+                      </span>
+                      <span className="font-medium">{lesson.student_full_name}</span>
+                      {lesson.topic && (
+                        <span className="text-sm text-muted-foreground">— {lesson.topic}</span>
+                      )}
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {lesson.duration_minutes} хв
                     </span>
-                    <span className="font-medium">{lesson.student_full_name}</span>
-                    {lesson.topic && (
-                      <span className="text-sm text-muted-foreground">— {lesson.topic}</span>
-                    )}
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {lesson.duration_minutes} хв
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </section>
 
@@ -181,40 +204,46 @@ export function DashboardPage() {
         {data.debtors.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+              <IconSquare icon={AlertCircle} bg="#FFF1E6" color="#F97316" />
               Боржники
             </h2>
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium">Учень</th>
-                    <th className="px-4 py-2 text-right font-medium">Борг</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.debtors.map((d) => (
-                    <tr
-                      key={d.student_id}
-                      className="border-t hover:bg-muted/30 cursor-pointer"
-                      onClick={() => navigate(`/students/${d.student_id}`)}
-                    >
-                      <td className="px-4 py-2">
-                        {d.full_name}
-                        {d.archived && (
-                          <Badge variant="muted" className="ml-2 text-xs">
-                            архів
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium text-destructive">
-                        {formatMoney(-d.balance)}
-                      </td>
+            <Card>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-[#F7F6FE]">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Учень
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Борг
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {data.debtors.map((d) => (
+                      <tr
+                        key={d.student_id}
+                        className="hover:bg-accent/40 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/students/${d.student_id}`)}
+                      >
+                        <td className="px-4 py-2">
+                          {d.full_name}
+                          {d.archived && (
+                            <Badge variant="muted" className="ml-2 text-xs">
+                              архів
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-destructive">
+                          {formatMoney(-d.balance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </section>
         )}
       </div>
