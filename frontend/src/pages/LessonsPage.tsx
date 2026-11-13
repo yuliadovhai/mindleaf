@@ -32,8 +32,8 @@ import { formatDateTime, localInputToIso, todayKyiv, addDays } from "../lib/date
 import { useRouter } from "../lib/router";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 
-const STATUS_OPTIONS: { value: LessonStatus | ""; label: string }[] = [
-  { value: "", label: "Всі статуси" },
+const STATUS_OPTIONS: { value: LessonStatus | "all"; label: string }[] = [
+  { value: "all", label: "Всі статуси" },
   { value: "planned", label: "Заплановано" },
   { value: "done", label: "Проведено" },
   { value: "cancelled", label: "Скасовано" },
@@ -48,8 +48,8 @@ export function LessonsPage() {
   const today = todayKyiv();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [status, setStatus] = useState<LessonStatus | "">("");
+  const [studentId, setStudentId] = useState("all");
+  const [status, setStatus] = useState<LessonStatus | "all">("all");
   const [students, setStudents] = useState<Student[]>([]);
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -72,8 +72,8 @@ export function LessonsPage() {
     const filters: { from?: string; to?: string; student_id?: string; status?: LessonStatus } = {};
     if (from) filters.from = localInputToIso(`${from}T00:00`);
     if (to) filters.to = localInputToIso(`${addDays(to, 1)}T00:00`);
-    if (studentId) filters.student_id = studentId;
-    if (status) filters.status = status;
+    if (studentId !== "all") filters.student_id = studentId;
+    if (status !== "all") filters.status = status;
     listLessons(token, filters)
       .then(setLessons)
       .catch(() => setError("Не вдалося завантажити заняття"))
@@ -140,7 +140,7 @@ export function LessonsPage() {
                 <SelectValue placeholder="Всі учні" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Всі учні</SelectItem>
+                <SelectItem value="all">Всі учні</SelectItem>
                 {students.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.full_name}
@@ -151,7 +151,7 @@ export function LessonsPage() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="lp-status">Статус</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as LessonStatus | "")}>
+            <Select value={status} onValueChange={(v) => setStatus(v as LessonStatus | "all")}>
               <SelectTrigger id="lp-status" className="w-44">
                 <SelectValue />
               </SelectTrigger>

@@ -41,7 +41,7 @@ export function PaymentsPage() {
   const firstOfMonth = today.slice(0, 7) + "-01";
   const [from, setFrom] = useState(firstOfMonth);
   const [to, setTo] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const [studentId, setStudentId] = useState("all");
   const [students, setStudents] = useState<Student[]>([]);
 
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -61,7 +61,7 @@ export function PaymentsPage() {
     setLoading(true);
     setError("");
     const filters: { student_id?: string; from?: string; to?: string } = {};
-    if (studentId) filters.student_id = studentId;
+    if (studentId !== "all") filters.student_id = studentId;
     if (from) filters.from = localInputToIso(`${from}T00:00`);
     if (to) filters.to = localInputToIso(`${addDays(to, 1)}T00:00`);
     listPayments(token, filters)
@@ -132,7 +132,7 @@ export function PaymentsPage() {
                 <SelectValue placeholder="Всі учні" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Всі учні</SelectItem>
+                <SelectItem value="all">Всі учні</SelectItem>
                 {students.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.full_name}
