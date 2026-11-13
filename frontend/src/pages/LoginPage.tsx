@@ -13,10 +13,11 @@ export function LoginPage() {
   }
 
   if (auth.error) {
+    console.error("Auth error:", auth.error);
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-destructive">Помилка автентифікації: {auth.error.message}</p>
+          <p className="text-destructive">Не вдалося увійти. Спробуйте ще раз.</p>
           <Button onClick={() => void auth.signinRedirect()}>Спробувати знову</Button>
         </div>
       </div>
@@ -31,7 +32,7 @@ export function LoginPage() {
           <p className="text-muted-foreground text-sm">Увійдіть, щоб продовжити</p>
         </div>
         <Button className="w-full" onClick={() => void auth.signinRedirect()}>
-          Увійти через Cognito
+          Увійти / Зареєструватися
         </Button>
       </div>
     </div>
