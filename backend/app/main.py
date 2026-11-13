@@ -2,7 +2,16 @@ from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import access, dashboard, health, lessons, me, payments, students
+from app.api import (
+    access,
+    dashboard,
+    health,
+    lessons,
+    me,
+    payments,
+    portal,
+    students,
+)
 from app.schemas.common import ErrorResponse
 from app.services.errors import (
     Conflict,
@@ -70,5 +79,6 @@ api.include_router(
     payments.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
 )
 api.include_router(access.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
+api.include_router(portal.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Lesson, LessonStatus
 from app.schemas.lesson import LessonCreate, LessonUpdate
-from app.services import students
+from app.services import clock, students
 from app.services.errors import NotFound, StudentArchived, StudentNotFound
 
 
@@ -80,9 +80,21 @@ def set_status(
 ) -> Lesson:
     """Any status may follow any other; balances are computed, so they follow."""
     lesson = _get_owned(session, tutor_id, lesson_id)
-    lesson.status = status
+    mark_status(lesson, status, by=tutor_id)
     session.commit()
+    session.refresh(lesson, ["canceller"])
     return lesson
+
+
+def mark_status(lesson: Lesson, status: LessonStatus, by: uuid.UUID) -> None:
+    """Set the status; a cancellation remembers who did it and when."""
+    if status == LessonStatus.cancelled and lesson.status != LessonStatus.cancelled:
+        lesson.cancelled_by = by
+        lesson.cancelled_at = clock.now()
+    elif status != LessonStatus.cancelled:
+        lesson.cancelled_by = None
+        lesson.cancelled_at = None
+    lesson.status = status
 
 
 def delete_lesson(session: Session, tutor_id: uuid.UUID, lesson_id: uuid.UUID) -> None:

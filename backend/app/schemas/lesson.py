@@ -3,7 +3,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from app.models import LessonStatus
+from app.models import LessonStatus, Role
 from app.schemas.common import (
     InDatetime,
     Money,
@@ -56,15 +56,23 @@ class LessonOut(ResponseModel):
     topic: str | None
     homework: str | None
     notes: str | None
+    cancelled_at: OutDatetime | None
+    cancelled_by_role: Role | None = Field(description="Хто скасував: tutor або parent")
     created_at: OutDatetime
 
     @classmethod
     def of(cls, lesson: Any) -> "LessonOut":
+        derived = {"student_full_name", "cancelled_by_role"}
         fields = {
             name: getattr(lesson, name)
             for name in cls.model_fields
-            if name != "student_full_name"
+            if name not in derived
         }
+        canceller = lesson.canceller
         return cls.model_validate(
-            {**fields, "student_full_name": lesson.student.full_name}
+            {
+                **fields,
+                "student_full_name": lesson.student.full_name,
+                "cancelled_by_role": canceller.role if canceller else None,
+            }
         )

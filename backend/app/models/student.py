@@ -13,9 +13,10 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.models.user import User
 
 
 class Student(Base):
@@ -45,3 +46,5 @@ class Student(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    tutor: Mapped[User] = relationship(lazy="joined", viewonly=True)

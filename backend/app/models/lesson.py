@@ -17,6 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.models.student import Student
+from app.models.user import User
 
 
 class LessonStatus(StrEnum):
@@ -53,10 +54,16 @@ class Lesson(Base):
     topic: Mapped[str | None] = mapped_column(Text)
     homework: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
+    # Who set status "cancelled" (the tutor or a parent) and when.
+    cancelled_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
+    canceller: Mapped[User | None] = relationship(
+        foreign_keys=[cancelled_by], lazy="joined", viewonly=True
+    )
     student: Mapped[Student] = relationship(
         primaryjoin="Lesson.student_id == Student.id",
         foreign_keys=[student_id],

@@ -96,7 +96,9 @@ def db_client(db: Session, client: TestClient) -> TestClient:
 
 
 def _make_tutor(db: Session, sub: str) -> User:
-    tutor = User(cognito_sub=sub, email=f"{sub}@example.com", role="tutor")
+    tutor = User(
+        cognito_sub=sub, email=f"{sub}@example.com", name=sub.title(), role="tutor"
+    )
     db.add(tutor)
     db.flush()
     return tutor
