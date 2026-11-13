@@ -107,3 +107,35 @@ def answers_for(quiz: dict, *, single: str, multiple: list[str], text: str | Non
             {"question_id": q3["id"], "text_answer": text},
         ]
     }
+
+
+def upload_material(
+    client: TestClient,
+    *,
+    data: bytes = b"%PDF-1.4 demo",
+    content_type: str = "application/pdf",
+    title: str = "Дроби: конспект",
+    name: str = "drobi.pdf",
+) -> dict:
+    """The two steps the browser does: signed upload, then record it."""
+    target = client.post(
+        "/api/materials/uploads",
+        json={"content_type": content_type, "size_bytes": len(data)},
+    )
+    assert target.status_code == 200, target.text
+    target = target.json()
+    uploaded = client.post(
+        target["url"], data=target["fields"], files={"file": (name, data, content_type)}
+    )
+    assert uploaded.status_code == 204, uploaded.text
+    created = client.post(
+        "/api/materials",
+        json={
+            "key": target["key"],
+            "title": title,
+            "original_name": name,
+            "size_bytes": len(data),
+        },
+    )
+    assert created.status_code == 201, created.text
+    return created.json()

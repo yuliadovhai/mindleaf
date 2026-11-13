@@ -47,3 +47,17 @@ def test_constraint_names(db):
         )
         assert expected <= names, (table, sorted(names))
         assert not [n for n in names if n.count("ck_") > 1], (table, sorted(names))
+
+
+def test_no_constraint_anywhere_has_a_doubled_prefix(db):
+    names = db.scalars(
+        text(
+            "SELECT conname FROM pg_constraint "
+            "WHERE connamespace = 'public'::regnamespace"
+        )
+    ).all()
+
+    doubled = [
+        n for n in names if any(n.count(p) > 1 for p in ("ck_", "fk_", "uq_", "pk_"))
+    ]
+    assert doubled == []

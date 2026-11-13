@@ -1,4 +1,4 @@
-"""Where homework photos live.
+"""Where homework photos and teaching materials live.
 
 The browser never sends a photo through the API Lambda: it gets a short-lived
 signed upload target and talks to storage directly.
@@ -23,12 +23,34 @@ from app.settings import settings
 
 URL_TTL_SECONDS = 15 * 60
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
+MAX_MATERIAL_BYTES = 10 * 1024 * 1024
+# Homework photos: what phones produce.
 CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/heic": "heic"}
-EXTENSIONS = {ext: ct for ct, ext in CONTENT_TYPES.items()}
-# homework/<lesson uuid>/<photo uuid>.<ext> - nothing else is ever accepted.
-KEY_RE = re.compile(
-    r"^homework/[0-9a-f-]{36}/[0-9a-f]{32}\.(jpg|png|heic)$",
+# Materials: what Claude can read directly when generating a quiz.
+MATERIAL_TYPES = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "text/plain": "txt",
+    "text/markdown": "md",
+}
+EXTENSIONS = {
+    "jpg": "image/jpeg",
+    "png": "image/png",
+    "heic": "image/heic",
+    "pdf": "application/pdf",
+    "txt": "text/plain",
+    "md": "text/markdown",
+}
+_UUID = r"[0-9a-f-]{36}"
+# homework/<lesson or homework uuid>/<photo uuid>.<ext>
+PHOTO_KEY_RE = re.compile(rf"^homework/{_UUID}/[0-9a-f]{{32}}\.(jpg|png|heic)$")
+# materials/<tutor uuid>/<file uuid>.<ext>
+MATERIAL_KEY_RE = re.compile(
+    rf"^materials/{_UUID}/[0-9a-f]{{32}}\.(pdf|jpg|png|txt|md)$"
 )
+# Nothing else is ever accepted as a storage key.
+KEY_RE = re.compile(f"{PHOTO_KEY_RE.pattern}|{MATERIAL_KEY_RE.pattern}")
 
 
 @dataclass(frozen=True)

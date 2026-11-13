@@ -15,7 +15,7 @@ from app.models import (
 )
 from app.services import clock, portal
 from app.services.errors import Conflict, Forbidden, NotFound
-from app.storage import CONTENT_TYPES, KEY_RE, Storage, UploadTarget
+from app.storage import CONTENT_TYPES, PHOTO_KEY_RE, Storage, UploadTarget
 
 MAX_PHOTOS = 5
 
@@ -62,7 +62,9 @@ def submit(
     """Create or replace the submission while the tutor has not reviewed it."""
     lesson = _student_lesson(session, user, lesson_id)
     prefix = f"homework/{lesson.id}/"
-    if any(not KEY_RE.fullmatch(k) or not k.startswith(prefix) for k in photo_keys):
+    if any(
+        not PHOTO_KEY_RE.fullmatch(k) or not k.startswith(prefix) for k in photo_keys
+    ):
         raise Conflict("bad_photo_key")
 
     submission = _submission_for_lesson(session, lesson.id)

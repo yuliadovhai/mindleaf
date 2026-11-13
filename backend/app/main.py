@@ -10,6 +10,7 @@ from app.api import (
     homework,
     internal,
     lessons,
+    materials,
     me,
     payments,
     portal,
@@ -94,6 +95,9 @@ api.include_router(
     homework.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
 )
 api.include_router(quizzes.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
+api.include_router(
+    materials.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
+)
 api.include_router(files.router)
 api.include_router(internal.router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})

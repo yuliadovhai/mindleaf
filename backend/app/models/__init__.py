@@ -7,6 +7,7 @@ from app.models.homework import (
     SubmissionStatus,
 )
 from app.models.lesson import Lesson, LessonStatus
+from app.models.material import Material, MaterialShare
 from app.models.payment import Payment, PaymentMethod
 from app.models.quiz import (
     AssignmentStatus,
@@ -28,6 +29,8 @@ __all__ = [
     "Lesson",
     "LessonStatus",
     "Payment",
+    "Material",
+    "MaterialShare",
     "PaymentMethod",
     "QuestionKind",
     "Quiz",
