@@ -22,8 +22,10 @@ from sqlalchemy import Connection, Engine, create_engine, text  # noqa: E402
 from sqlalchemy.engine import make_url  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from app.auth.dependencies import get_current_tutor  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models import Tutor  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -91,3 +93,35 @@ def db_client(db: Session, client: TestClient) -> TestClient:
     """A client whose requests share the test's rolled-back transaction."""
     app.dependency_overrides[get_session] = lambda: db
     return client
+
+
+def _make_tutor(db: Session, sub: str) -> Tutor:
+    tutor = Tutor(cognito_sub=sub, email=f"{sub}@example.com")
+    db.add(tutor)
+    db.flush()
+    return tutor
+
+
+@pytest.fixture
+def tutor_a(db: Session):
+    return _make_tutor(db, "tutor-a")
+
+
+@pytest.fixture
+def tutor_b(db: Session):
+    return _make_tutor(db, "tutor-b")
+
+
+@pytest.fixture
+def as_tutor(db_client: TestClient):
+    """as_tutor(tutor) -> the client, with get_current_tutor returning that tutor.
+
+    Switching tutors on the same client is how the isolation tests act as two
+    different people.
+    """
+
+    def switch(tutor) -> TestClient:
+        app.dependency_overrides[get_current_tutor] = lambda: tutor
+        return db_client
+
+    return switch
