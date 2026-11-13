@@ -212,10 +212,14 @@ export interface HomeworkPhoto {
   url: string;
 }
 
+/** A submission: exactly one of lesson_id / homework_id is set. */
 export interface Homework {
   id: string;
-  lesson_id: string;
-  lesson_starts_at: string;
+  lesson_id: string | null;
+  lesson_starts_at: string | null;
+  homework_id: string | null;
+  title: string | null;
+  due_at: string | null;
   task: string | null;
   student_id: string;
   student_full_name: string;
@@ -257,10 +261,14 @@ export interface QuizQuestion {
   reference_answer: string | null;
 }
 
+export type QuizStatus = "draft" | "ready";
+
 export interface Quiz {
   id: string;
   title: string;
   description: string | null;
+  status: QuizStatus;
+  source_material_id: string | null;
   questions: QuizQuestion[];
   max_score: number;
   assignment_count: number;
@@ -271,6 +279,7 @@ export interface Quiz {
 export interface QuizSummary {
   id: string;
   title: string;
+  status: QuizStatus;
   question_count: number;
   max_score: number;
   assignment_count: number;
@@ -326,4 +335,88 @@ export interface AnswerIn {
   question_id: string;
   selected_options?: string[];
   text_answer?: string | null;
+}
+
+// ---------- materials ----------
+
+export type MaterialType =
+  | "application/pdf"
+  | "image/jpeg"
+  | "image/png"
+  | "text/plain"
+  | "text/markdown";
+
+export interface Material {
+  id: string;
+  title: string;
+  description: string | null;
+  content_type: string;
+  size_bytes: number;
+  original_name: string;
+  download_url: string;
+  shared_with: { student_id: string; full_name: string }[];
+  created_at: string;
+}
+
+export interface MemberMaterial {
+  id: string;
+  title: string;
+  description: string | null;
+  content_type: string;
+  size_bytes: number;
+  original_name: string;
+  download_url: string;
+  student_ids: string[];
+  created_at: string;
+}
+
+export type GenerationStatus = "pending" | "done" | "failed";
+
+export interface Generation {
+  id: string;
+  material_id: string | null;
+  material_title: string | null;
+  status: GenerationStatus;
+  question_count: number;
+  include_written: boolean;
+  instructions: string | null;
+  quiz_id: string | null;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+// ---------- homework assignments ----------
+
+export interface AttachedMaterial {
+  id: string;
+  title: string;
+  content_type: string;
+  original_name: string;
+  download_url: string;
+}
+
+export interface HomeworkAssignment {
+  id: string;
+  student_id: string;
+  student_full_name: string;
+  title: string;
+  description: string | null;
+  due_at: string | null;
+  materials: AttachedMaterial[];
+  submission_status: SubmissionStatus | null;
+  grade: number | null;
+  created_at: string;
+}
+
+export interface HomeworkAssignmentDetail extends HomeworkAssignment {
+  submission: Homework | null;
+}
+
+export interface HomeworkAssignmentIn {
+  student_id: string;
+  title: string;
+  description?: string | null;
+  due_at?: string | null;
+  material_ids: string[];
 }

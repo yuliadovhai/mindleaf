@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   CreditCard,
+  FolderOpen,
   Home,
   LayoutDashboard,
   ListChecks,
@@ -31,6 +32,7 @@ const TUTOR_NAV: NavItem[] = [
   { label: "Оплати", path: "/payments", icon: CreditCard },
   { label: "ДЗ", path: "/homework", icon: ClipboardCheck },
   { label: "Тести", path: "/quizzes", icon: ListChecks },
+  { label: "Матеріали", path: "/materials", icon: FolderOpen },
 ];
 
 const STUDENT_NAV: NavItem[] = [
@@ -38,6 +40,7 @@ const STUDENT_NAV: NavItem[] = [
   { label: "Розклад", path: "/schedule", icon: CalendarDays },
   { label: "ДЗ", path: "/homework", icon: BookOpen },
   { label: "Тести", path: "/quizzes", icon: ListChecks },
+  { label: "Матеріали", path: "/materials", icon: FolderOpen },
 ];
 
 const PARENT_NAV: NavItem[] = [

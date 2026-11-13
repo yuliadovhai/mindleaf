@@ -1,16 +1,25 @@
 import { useCallback, useState } from "react";
 import { useSession } from "../../auth/session";
-import { listHomework, reviewHomework } from "../../api/homework";
-import type { Homework, SubmissionStatus } from "../../api/types";
+import {
+  deleteHomeworkAssignment,
+  listHomework,
+  listHomeworkAssignments,
+  reviewHomework,
+} from "../../api/homework";
+import type { Homework } from "../../api/types";
 import { Layout } from "../../components/Layout";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { ErrorMessage } from "../../components/ErrorMessage";
+import { HomeworkAssignmentDialog } from "../../components/HomeworkAssignmentDialog";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { formatDateTime } from "../../lib/datetime";
 import { useLoad } from "../../lib/useLoad";
+import { Paperclip, Plus, Trash2 } from "lucide-react";
+
+type Tab = "submitted" | "reviewed" | "assignments";
 
 function ReviewForm({ item, onSaved }: { item: Homework; onSaved: (h: Homework) => void }) {
   const { token } = useSession();
@@ -74,85 +83,169 @@ function ReviewForm({ item, onSaved }: { item: Homework; onSaved: (h: Homework) 
   );
 }
 
-export function HomeworkReviewPage() {
+function Submissions({ tab }: { tab: "submitted" | "reviewed" }) {
   const { token } = useSession();
-  const [tab, setTab] = useState<SubmissionStatus>("submitted");
   const load = useCallback(() => listHomework(token, tab), [token, tab]);
   const { data, setData, loading, error } = useLoad(load);
+
+  if (loading) return <LoadingSpinner />;
+  return (
+    <div className="space-y-3">
+      {error && <ErrorMessage message={error} />}
+      {data?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {tab === "submitted" ? "Нічого не чекає на перевірку." : "Перевірених ще немає."}
+        </p>
+      )}
+      {data?.map((item) => (
+        <div key={item.id} className="rounded-lg border bg-card p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-medium">
+              {item.student_full_name}
+              {item.title && <span className="font-normal"> — {item.title}</span>}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {item.lesson_starts_at
+                ? `Заняття ${formatDateTime(item.lesson_starts_at)} · `
+                : item.due_at
+                  ? `Строк ${formatDateTime(item.due_at)} · `
+                  : ""}
+              здано {formatDateTime(item.submitted_at)}
+            </span>
+          </div>
+          {item.task && (
+            <p className="text-sm">
+              <span className="text-muted-foreground">Завдання: </span>
+              {item.task}
+            </p>
+          )}
+          {item.text && <p className="whitespace-pre-wrap">{item.text}</p>}
+          {item.photos.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {item.photos.map((p) => (
+                <a key={p.key} href={p.url} target="_blank" rel="noreferrer">
+                  <img
+                    src={p.url}
+                    alt="Фото відповіді"
+                    className="h-24 w-24 rounded-md border object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          )}
+          {item.status === "reviewed" && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Badge variant="success">
+                Перевірено{item.grade !== null ? ` · ${item.grade}/12` : ""}
+              </Badge>
+              {item.feedback && <span className="italic">«{item.feedback}»</span>}
+            </div>
+          )}
+          {item.status === "submitted" && (
+            <ReviewForm
+              item={item}
+              onSaved={(saved) => setData((data ?? []).filter((h) => h.id !== saved.id))}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Assignments() {
+  const { token } = useSession();
+  const [open, setOpen] = useState(false);
+  const load = useCallback(() => listHomeworkAssignments(token), [token]);
+  const { data, loading, error, reload } = useLoad(load);
+
+  return (
+    <div className="space-y-3">
+      <Button className="gap-1.5" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" />
+        Задати ДЗ
+      </Button>
+      {loading && <LoadingSpinner />}
+      {error && <ErrorMessage message={error} />}
+      {data?.length === 0 && (
+        <p className="text-sm text-muted-foreground">Окремих завдань ще немає.</p>
+      )}
+      {data?.map((a) => (
+        <div
+          key={a.id}
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3"
+        >
+          <span>
+            <span className="block font-medium">
+              {a.title} — {a.student_full_name}
+            </span>
+            <span className="flex items-center gap-3 text-xs text-muted-foreground">
+              {a.due_at ? `Здати до ${formatDateTime(a.due_at)}` : "Без строку"}
+              {a.materials.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Paperclip className="h-3 w-3" />
+                  {a.materials.map((m) => m.title).join(", ")}
+                </span>
+              )}
+            </span>
+          </span>
+          <span className="flex items-center gap-2">
+            {a.submission_status === null && <Badge variant="warning">Не здано</Badge>}
+            {a.submission_status === "submitted" && <Badge variant="secondary">Здано</Badge>}
+            {a.submission_status === "reviewed" && (
+              <Badge variant="success">
+                Перевірено{a.grade !== null ? ` · ${a.grade}/12` : ""}
+              </Badge>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Видалити"
+              onClick={async () => {
+                if (!window.confirm(`Видалити «${a.title}» разом із відповіддю?`)) return;
+                await deleteHomeworkAssignment(token, a.id);
+                await reload();
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </span>
+        </div>
+      ))}
+      <HomeworkAssignmentDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onCreated={() => void reload()}
+      />
+    </div>
+  );
+}
+
+export function HomeworkReviewPage() {
+  const [tab, setTab] = useState<Tab>("submitted");
+  const TABS: { id: Tab; label: string }[] = [
+    { id: "submitted", label: "На перевірку" },
+    { id: "reviewed", label: "Перевірені" },
+    { id: "assignments", label: "Завдання учням" },
+  ];
 
   return (
     <Layout>
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Домашні завдання</h1>
-        <div className="flex gap-2">
-          <Button
-            variant={tab === "submitted" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTab("submitted")}
-          >
-            На перевірку
-          </Button>
-          <Button
-            variant={tab === "reviewed" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTab("reviewed")}
-          >
-            Перевірені
-          </Button>
-        </div>
-        {loading && <LoadingSpinner />}
-        {error && <ErrorMessage message={error} />}
-        {!loading && data?.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {tab === "submitted" ? "Нічого не чекає на перевірку." : "Перевірених ще немає."}
-          </p>
-        )}
-        {!loading &&
-          data?.map((item) => (
-            <div key={item.id} className="rounded-lg border bg-card p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium">{item.student_full_name}</span>
-                <span className="text-sm text-muted-foreground">
-                  Заняття {formatDateTime(item.lesson_starts_at)} · здано{" "}
-                  {formatDateTime(item.submitted_at)}
-                </span>
-              </div>
-              {item.task && (
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Завдання: </span>
-                  {item.task}
-                </p>
-              )}
-              {item.text && <p className="whitespace-pre-wrap">{item.text}</p>}
-              {item.photos.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {item.photos.map((p) => (
-                    <a key={p.key} href={p.url} target="_blank" rel="noreferrer">
-                      <img
-                        src={p.url}
-                        alt="Фото відповіді"
-                        className="h-24 w-24 rounded-md border object-cover"
-                      />
-                    </a>
-                  ))}
-                </div>
-              )}
-              {item.status === "reviewed" && (
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <Badge variant="success">
-                    Перевірено{item.grade !== null ? ` · ${item.grade}/12` : ""}
-                  </Badge>
-                  {item.feedback && <span className="italic">«{item.feedback}»</span>}
-                </div>
-              )}
-              {item.status === "submitted" && (
-                <ReviewForm
-                  item={item}
-                  onSaved={(saved) => setData((data ?? []).filter((h) => h.id !== saved.id))}
-                />
-              )}
-            </div>
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
+            <Button
+              key={t.id}
+              variant={tab === t.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </Button>
           ))}
+        </div>
+        {tab === "assignments" ? <Assignments /> : <Submissions key={tab} tab={tab} />}
       </div>
     </Layout>
   );

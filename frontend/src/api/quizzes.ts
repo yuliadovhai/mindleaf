@@ -23,6 +23,14 @@ export function createQuiz(token: string, data: QuizIn): Promise<Quiz> {
   return apiFetch<Quiz>(token, "/api/quizzes", { method: "POST", body: JSON.stringify(data) });
 }
 
+export function replaceQuiz(token: string, id: string, data: QuizIn): Promise<Quiz> {
+  return apiFetch<Quiz>(token, `/api/quizzes/${id}`, { method: "PUT", body: JSON.stringify(data) });
+}
+
+export function publishQuiz(token: string, id: string): Promise<Quiz> {
+  return apiFetch<Quiz>(token, `/api/quizzes/${id}/publish`, { method: "POST" });
+}
+
 export function deleteQuiz(token: string, id: string): Promise<void> {
   return apiFetch<void>(token, `/api/quizzes/${id}`, { method: "DELETE" });
 }

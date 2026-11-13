@@ -15,6 +15,10 @@ import { PaymentsPage } from "./pages/PaymentsPage";
 import { HomeworkReviewPage } from "./pages/tutor/HomeworkReviewPage";
 import { QuizzesPage } from "./pages/tutor/QuizzesPage";
 import { QuizAssignmentPage } from "./pages/tutor/QuizAssignmentPage";
+import { QuizEditPage } from "./pages/tutor/QuizEditPage";
+import { MaterialsPage } from "./pages/tutor/MaterialsPage";
+import { HomeworkAssignmentPage } from "./pages/portal/HomeworkAssignmentPage";
+import { PortalMaterialsPage } from "./pages/portal/PortalMaterialsPage";
 import { PortalHomePage } from "./pages/portal/PortalHomePage";
 import { PortalSchedulePage } from "./pages/portal/PortalSchedulePage";
 import { PortalHomeworkPage } from "./pages/portal/PortalHomeworkPage";
@@ -70,6 +74,7 @@ function Spinner() {
 function TutorPages({ path }: { path: string }) {
   const student = path.match(/^\/students\/([^/]+)$/);
   const assignment = path.match(/^\/quiz-assignments\/([^/]+)$/);
+  const quizEdit = path.match(/^\/quizzes\/([^/]+)\/edit$/);
   if (path === "/") return <DashboardPage />;
   if (path === "/students") return <StudentsPage />;
   if (student) return <StudentPage id={student[1]} />;
@@ -77,7 +82,9 @@ function TutorPages({ path }: { path: string }) {
   if (path === "/payments") return <PaymentsPage />;
   if (path === "/homework") return <HomeworkReviewPage />;
   if (path === "/quizzes") return <QuizzesPage />;
+  if (quizEdit) return <QuizEditPage id={quizEdit[1]} />;
   if (assignment) return <QuizAssignmentPage id={assignment[1]} />;
+  if (path === "/materials") return <MaterialsPage />;
   return <NotFound />;
 }
 
@@ -85,10 +92,13 @@ function TutorPages({ path }: { path: string }) {
 function PortalPages({ path, role }: { path: string; role: Role }) {
   const homework = path.match(/^\/lessons\/([^/]+)\/homework$/);
   const quiz = path.match(/^\/quizzes\/([^/]+)$/);
+  const homeworkAssignment = path.match(/^\/homework\/([^/]+)$/);
   if (path === "/") return <PortalHomePage />;
   if (path === "/schedule") return <PortalSchedulePage />;
   if (path === "/homework") return <PortalHomeworkPage />;
   if (homework) return <HomeworkLessonPage id={homework[1]} />;
+  if (homeworkAssignment) return <HomeworkAssignmentPage id={homeworkAssignment[1]} />;
+  if (path === "/materials") return <PortalMaterialsPage />;
   if (path === "/quizzes") return <PortalQuizzesPage />;
   if (quiz) return <PortalQuizPage id={quiz[1]} />;
   if (path === "/payments" && role === "parent") return <PortalPaymentsPage />;
