@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "react-oidc-context";
+import { useSession } from "../auth/session";
 import { listStudents, archiveStudent } from "../api/students";
 import type { Student } from "../api/types";
 import { Layout } from "../components/Layout";
@@ -21,8 +21,7 @@ import { useRouter } from "../lib/router";
 import { Plus, Archive, Pencil, Eye } from "lucide-react";
 
 export function StudentsPage() {
-  const auth = useAuth();
-  const token = auth.user?.access_token ?? "";
+  const { token } = useSession();
   const { navigate } = useRouter();
 
   const [students, setStudents] = useState<Student[]>([]);

@@ -1,13 +1,29 @@
-import { Component, useEffect, type ErrorInfo, type ReactNode } from "react";
-import { useAuth } from "react-oidc-context";
-import { useRouter } from "./lib/router";
+import { Component, useCallback, useEffect, type ErrorInfo, type ReactNode } from "react";
+import { useSession } from "./auth/session";
+import { MeContext } from "./auth/me";
+import { getMe } from "./api/me";
 import { setSigninRedirect } from "./api/client";
+import { useRouter } from "./lib/router";
+import { useLoad } from "./lib/useLoad";
 import { LoginPage } from "./pages/LoginPage";
+import { RoleChoicePage } from "./pages/RoleChoicePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { StudentsPage } from "./pages/StudentsPage";
 import { StudentPage } from "./pages/StudentPage";
 import { LessonsPage } from "./pages/LessonsPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
+import { HomeworkReviewPage } from "./pages/tutor/HomeworkReviewPage";
+import { QuizzesPage } from "./pages/tutor/QuizzesPage";
+import { QuizAssignmentPage } from "./pages/tutor/QuizAssignmentPage";
+import { PortalHomePage } from "./pages/portal/PortalHomePage";
+import { PortalSchedulePage } from "./pages/portal/PortalSchedulePage";
+import { PortalHomeworkPage } from "./pages/portal/PortalHomeworkPage";
+import { HomeworkLessonPage } from "./pages/portal/HomeworkLessonPage";
+import { PortalQuizzesPage } from "./pages/portal/PortalQuizzesPage";
+import { PortalQuizPage } from "./pages/portal/PortalQuizPage";
+import { PortalPaymentsPage } from "./pages/portal/PortalPaymentsPage";
+import { Button } from "./components/ui/button";
+import type { Role } from "./api/types";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -32,13 +48,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-function PageContent({ path }: { path: string }) {
-  const studentMatch = path.match(/^\/students\/([^/]+)$/);
-  if (path === "/") return <DashboardPage />;
-  if (path === "/students") return <StudentsPage />;
-  if (studentMatch) return <StudentPage id={studentMatch[1]} />;
-  if (path === "/lessons") return <LessonsPage />;
-  if (path === "/payments") return <PaymentsPage />;
+function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center space-y-2">
@@ -49,32 +59,89 @@ function PageContent({ path }: { path: string }) {
   );
 }
 
-export function App() {
-  const auth = useAuth();
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
+function TutorPages({ path }: { path: string }) {
+  const student = path.match(/^\/students\/([^/]+)$/);
+  const assignment = path.match(/^\/quiz-assignments\/([^/]+)$/);
+  if (path === "/") return <DashboardPage />;
+  if (path === "/students") return <StudentsPage />;
+  if (student) return <StudentPage id={student[1]} />;
+  if (path === "/lessons") return <LessonsPage />;
+  if (path === "/payments") return <PaymentsPage />;
+  if (path === "/homework") return <HomeworkReviewPage />;
+  if (path === "/quizzes") return <QuizzesPage />;
+  if (assignment) return <QuizAssignmentPage id={assignment[1]} />;
+  return <NotFound />;
+}
+
+/** Students and parents share these pages; each shows what that role may see. */
+function PortalPages({ path, role }: { path: string; role: Role }) {
+  const homework = path.match(/^\/lessons\/([^/]+)\/homework$/);
+  const quiz = path.match(/^\/quizzes\/([^/]+)$/);
+  if (path === "/") return <PortalHomePage />;
+  if (path === "/schedule") return <PortalSchedulePage />;
+  if (path === "/homework") return <PortalHomeworkPage />;
+  if (homework) return <HomeworkLessonPage id={homework[1]} />;
+  if (path === "/quizzes") return <PortalQuizzesPage />;
+  if (quiz) return <PortalQuizPage id={quiz[1]} />;
+  if (path === "/payments" && role === "parent") return <PortalPaymentsPage />;
+  return <NotFound />;
+}
+
+/** Loads /api/me once and picks the cabinet by role. */
+function Cabinet() {
+  const { token, signOut } = useSession();
   const { path } = useRouter();
+  const load = useCallback(() => getMe(token), [token]);
+  const { data: me, loading, error, reload } = useLoad(load);
 
-  useEffect(() => {
-    setSigninRedirect(() => auth.signinRedirect());
-  }, [auth]);
-
-  if (auth.isLoading || (!auth.isAuthenticated && !auth.error)) {
-    if (!auth.isLoading) {
-      return <LoginPage />;
-    }
+  if (loading && !me) return <Spinner />;
+  if (error || !me) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="text-center space-y-3">
+          <p className="text-destructive">Не вдалося завантажити профіль. Чи запущено backend?</p>
+          <Button variant="outline" onClick={signOut}>
+            Вийти
+          </Button>
+        </div>
       </div>
     );
   }
 
-  if (!auth.isAuthenticated) {
-    return <LoginPage />;
-  }
-
   return (
-    <ErrorBoundary key={path}>
-      <PageContent path={path} />
-    </ErrorBoundary>
+    <MeContext.Provider value={{ me, reload }}>
+      {me.role === null ? (
+        <RoleChoicePage />
+      ) : (
+        <ErrorBoundary key={path}>
+          {me.role === "tutor" ? (
+            <TutorPages path={path} />
+          ) : (
+            <PortalPages path={path} role={me.role} />
+          )}
+        </ErrorBoundary>
+      )}
+    </MeContext.Provider>
   );
+}
+
+export function App() {
+  const session = useSession();
+  const { signIn } = session;
+
+  useEffect(() => {
+    setSigninRedirect(async () => signIn());
+  }, [signIn]);
+
+  if (session.isLoading) return <Spinner />;
+  if (!session.isAuthenticated) return <LoginPage />;
+  return <Cabinet />;
 }

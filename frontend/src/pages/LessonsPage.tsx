@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "react-oidc-context";
+import { useSession } from "../auth/session";
 import { listLessons, deleteLesson } from "../api/lessons";
 import { listStudents } from "../api/students";
 import type { Lesson, Student, LessonStatus } from "../api/types";
@@ -41,8 +41,7 @@ const STATUS_OPTIONS: { value: LessonStatus | "all"; label: string }[] = [
 ];
 
 export function LessonsPage() {
-  const auth = useAuth();
-  const token = auth.user?.access_token ?? "";
+  const { token } = useSession();
   const { navigate } = useRouter();
 
   const today = todayKyiv();

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "react-oidc-context";
+import { useSession } from "../auth/session";
 import { listPayments, deletePayment } from "../api/payments";
 import { listStudents } from "../api/students";
 import type { Payment, Student } from "../api/types";
@@ -33,8 +33,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 const METHOD_LABEL = { cash: "Готівка", card: "Картка", transfer: "Переказ" } as const;
 
 export function PaymentsPage() {
-  const auth = useAuth();
-  const token = auth.user?.access_token ?? "";
+  const { token } = useSession();
   const { navigate } = useRouter();
 
   const today = todayKyiv();

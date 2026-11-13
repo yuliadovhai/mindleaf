@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "react-oidc-context";
+import { useSession } from "../auth/session";
 import { getDashboard } from "../api/dashboard";
 import type { Dashboard } from "../api/types";
 import { Layout } from "../components/Layout";
@@ -11,11 +11,10 @@ import { Badge } from "../components/ui/badge";
 import { formatMoney } from "../lib/money";
 import { formatDateTime } from "../lib/datetime";
 import { useRouter } from "../lib/router";
-import { TrendingUp, AlertCircle, Calendar, Clock } from "lucide-react";
+import { TrendingUp, AlertCircle, Calendar, Clock, ClipboardCheck, ListChecks } from "lucide-react";
 
 export function DashboardPage() {
-  const auth = useAuth();
-  const token = auth.user?.access_token ?? "";
+  const { token } = useSession();
   const { navigate } = useRouter();
   const [data, setData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +57,7 @@ export function DashboardPage() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -79,6 +78,28 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold text-destructive">{formatMoney(data.debt_total)}</p>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:bg-muted/50" onClick={() => navigate("/homework")}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4" />
+                ДЗ на перевірку
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{data.homework_to_review}</p>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:bg-muted/50" onClick={() => navigate("/quizzes")}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <ListChecks className="h-4 w-4" />
+                Тести на перевірку
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{data.quizzes_to_review}</p>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "react-oidc-context";
+import { useSession } from "../auth/session";
 import { getStudent, updateStudent } from "../api/students";
 import { listLessons, deleteLesson } from "../api/lessons";
 import { listPayments, deletePayment } from "../api/payments";
@@ -11,6 +11,7 @@ import { StudentForm } from "../components/StudentForm";
 import { LessonForm } from "../components/LessonForm";
 import { LessonStatusForm } from "../components/LessonStatusForm";
 import { PaymentForm } from "../components/PaymentForm";
+import { StudentAccessPanel } from "../components/StudentAccessPanel";
 import { LessonStatusBadge } from "../components/LessonStatusBadge";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -42,11 +43,10 @@ interface StudentPageProps {
   id: string;
 }
 
-type Tab = "lessons" | "payments";
+type Tab = "lessons" | "payments" | "access";
 
 export function StudentPage({ id }: StudentPageProps) {
-  const auth = useAuth();
-  const token = auth.user?.access_token ?? "";
+  const { token } = useSession();
   const { navigate } = useRouter();
 
   const [student, setStudent] = useState<Student | null>(null);
@@ -240,7 +240,19 @@ export function StudentPage({ id }: StudentPageProps) {
           >
             Оплати ({payments.length})
           </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === "access"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setTab("access")}
+          >
+            Доступ учня й батьків
+          </button>
         </div>
+
+        {tab === "access" && <StudentAccessPanel studentId={id} />}
 
         {/* Lessons tab */}
         {tab === "lessons" && (

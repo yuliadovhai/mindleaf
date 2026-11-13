@@ -12,7 +12,7 @@ from app.models import (
     StudentLink,
     User,
 )
-from app.seed import seed
+from app.seed import UPCOMING_TOPICS, seed
 from app.services import clock, dashboard
 from app.settings import TIMEZONE
 from tests.factories import create_student
@@ -37,7 +37,7 @@ def test_seed_creates_demo_data_with_a_debtor(db, monkeypatch, now):
 
     assert seed(db) == {
         "students": 3,
-        "lessons": 12,
+        "lessons": 14,
         "payments": 3,
         "member_accounts": 2,
         "homework": 1,
@@ -52,6 +52,7 @@ def test_seed_creates_demo_data_with_a_debtor(db, monkeypatch, now):
             Lesson.starts_at < datetime(2026, 11, 16, tzinfo=TIMEZONE),
         )
     ).all()
+    this_week = [x for x in this_week if x.topic not in UPCOMING_TOPICS]
     assert len(this_week) == 6
     assert all(
         (lesson.status == "done") == (lesson.starts_at < now) for lesson in this_week
@@ -67,7 +68,7 @@ def test_seed_is_rerunnable_and_touches_only_its_tutor(db, as_tutor, tutor_b):
 
     tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
     assert _count(db, Student, tutor.id) == 3
-    assert _count(db, Lesson, tutor.id) == 12
+    assert _count(db, Lesson, tutor.id) == 14
     assert _count(db, Payment, tutor.id) == 3
     assert _count(db, Student, tutor_b.id) == 1
 
@@ -101,3 +102,15 @@ def test_seed_rerun_keeps_member_accounts(db):
     assert _count(db, QuizAssignment, tutor.id) == 2
     links = db.scalar(select(func.count()).select_from(StudentLink))
     assert links == 2
+
+
+def test_seed_parent_has_a_cancellable_and_a_late_lesson(db, as_user, monkeypatch):
+    now = datetime(2026, 11, 13, 21, 0, tzinfo=TIMEZONE)  # Friday evening
+    monkeypatch.setattr(clock, "now", lambda: now)
+    seed(db)
+    mom = db.scalars(select(User).where(User.cognito_sub == "local-dev-parent")).one()
+
+    lessons = as_user(mom).get("/api/portal/lessons", params={"from": now.isoformat()})
+
+    flags = [lesson["can_cancel"] for lesson in lessons.json()]
+    assert flags == [False, True]

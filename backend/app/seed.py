@@ -86,6 +86,8 @@ PAYMENTS = [
 ]
 
 
+UPCOMING_TOPICS = ("Рівняння", "Підготовка до контрольної")
+
 DEMO_QUIZ = {
     "title": "Дроби: перевірка",
     "description": "10 хвилин, без калькулятора",
@@ -171,6 +173,28 @@ def seed(session: Session, tutor_sub: str = DEFAULT_SUB) -> dict[str, int]:
                 price=student.default_price,
                 status=LessonStatus.done if finished else LessonStatus.planned,
                 homework="Вправи 1–5" if finished else None,
+            )
+        )
+    # Olena's next lessons, relative to now, so the parent's cabinet always shows
+    # one lesson that can still be cancelled and one that is too late (< 24 h).
+    olena_first = students[0]
+    tomorrow = now.date() + timedelta(days=1)
+    for starts_at, topic in (
+        (datetime.combine(tomorrow, time(10, 0), tzinfo=TIMEZONE), UPCOMING_TOPICS[0]),
+        (datetime.combine(now.date() + timedelta(days=4), time(16, 0), tzinfo=TIMEZONE),
+         UPCOMING_TOPICS[1]),
+    ):  # fmt: skip
+        if starts_at - now < timedelta(hours=1):
+            starts_at += timedelta(days=1)
+        lessons.append(
+            Lesson(
+                tutor_id=tutor.id,
+                student_id=olena_first.id,
+                starts_at=starts_at,
+                duration_minutes=60,
+                price=olena_first.default_price,
+                status=LessonStatus.planned,
+                topic=topic,
             )
         )
     session.add_all(lessons)

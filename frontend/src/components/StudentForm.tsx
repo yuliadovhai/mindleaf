@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "react-oidc-context";
+import { useSession } from "../auth/session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -18,8 +18,7 @@ interface StudentFormProps {
 }
 
 export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProps) {
-  const auth = useAuth();
-  const token = auth.user?.access_token ?? "";
+  const { token } = useSession();
 
   const [fullName, setFullName] = useState(initial?.full_name ?? "");
   const [subject, setSubject] = useState(initial?.subject ?? "");

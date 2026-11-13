@@ -17,4 +17,5 @@ infra/.terraform/
 # Local env
 .env
 .env.*
+!frontend/.env.development
 .DS_Store
