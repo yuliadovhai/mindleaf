@@ -25,4 +25,6 @@ def read_dashboard(
         income_month=data.income_month,
         debt_total=data.debt_total,
         debtors=[DebtorOut.model_validate(debtor) for debtor in data.debtors],
+        homework_to_review=data.homework_to_review,
+        quizzes_to_review=data.quizzes_to_review,
     )

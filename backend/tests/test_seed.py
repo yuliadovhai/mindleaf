@@ -3,7 +3,15 @@ from datetime import datetime
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Lesson, Payment, Student, User
+from app.models import (
+    HomeworkSubmission,
+    Lesson,
+    Payment,
+    QuizAssignment,
+    Student,
+    StudentLink,
+    User,
+)
 from app.seed import seed
 from app.services import clock, dashboard
 from app.settings import TIMEZONE
@@ -27,7 +35,14 @@ def _count(db, model, tutor_id):
 def test_seed_creates_demo_data_with_a_debtor(db, monkeypatch, now):
     monkeypatch.setattr(clock, "now", lambda: now)
 
-    assert seed(db) == {"students": 3, "lessons": 12, "payments": 3}
+    assert seed(db) == {
+        "students": 3,
+        "lessons": 12,
+        "payments": 3,
+        "member_accounts": 2,
+        "homework": 1,
+        "quiz_assignments": 2,
+    }
 
     tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
     this_week = db.scalars(
@@ -62,3 +77,27 @@ def test_seed_custom_sub(db):
 
     tutor = db.scalars(select(User).where(User.cognito_sub == "my-real-sub")).one()
     assert _count(db, Student, tutor.id) == 3
+
+
+def test_seed_members_quiz_and_homework(db, as_user):
+    seed(db)
+    kid = db.scalars(select(User).where(User.cognito_sub == "local-dev-student")).one()
+    mom = db.scalars(select(User).where(User.cognito_sub == "local-dev-parent")).one()
+
+    assert (kid.role, mom.role) == ("student", "parent")
+    students = as_user(mom).get("/api/portal/students").json()
+    assert [s["full_name"] for s in students] == ["Олена Коваль"]
+    quizzes = as_user(kid).get("/api/portal/quiz-assignments").json()
+    assert sorted(q["status"] for q in quizzes) == ["assigned", "submitted"]
+    tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
+    assert _count(db, HomeworkSubmission, tutor.id) == 1
+
+
+def test_seed_rerun_keeps_member_accounts(db):
+    seed(db)
+    seed(db)
+
+    tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
+    assert _count(db, QuizAssignment, tutor.id) == 2
+    links = db.scalar(select(func.count()).select_from(StudentLink))
+    assert links == 2

@@ -7,7 +7,16 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Lesson, LessonStatus, Payment, Student
+from app.models import (
+    AssignmentStatus,
+    HomeworkSubmission,
+    Lesson,
+    LessonStatus,
+    Payment,
+    QuizAssignment,
+    Student,
+    SubmissionStatus,
+)
 from app.services import balances, clock, lessons
 
 
@@ -27,6 +36,8 @@ class Dashboard:
     income_month: int
     debt_total: int
     debtors: list[Debtor]
+    homework_to_review: int
+    quizzes_to_review: int
 
 
 def build(session: Session, tutor_id: uuid.UUID) -> Dashboard:
@@ -56,6 +67,22 @@ def build(session: Session, tutor_id: uuid.UUID) -> Dashboard:
         )
     )
     debtors = _debtors(session, tutor_id)
+    homework_to_review = session.scalar(
+        select(func.count())
+        .select_from(HomeworkSubmission)
+        .where(
+            HomeworkSubmission.tutor_id == tutor_id,
+            HomeworkSubmission.status == SubmissionStatus.submitted,
+        )
+    )
+    quizzes_to_review = session.scalar(
+        select(func.count())
+        .select_from(QuizAssignment)
+        .where(
+            QuizAssignment.tutor_id == tutor_id,
+            QuizAssignment.status == AssignmentStatus.needs_review,
+        )
+    )
     return Dashboard(
         date=window.today,
         today=today,
@@ -63,6 +90,8 @@ def build(session: Session, tutor_id: uuid.UUID) -> Dashboard:
         income_month=int(income_month),
         debt_total=-sum(d.balance for d in debtors),
         debtors=debtors,
+        homework_to_review=homework_to_review,
+        quizzes_to_review=quizzes_to_review,
     )
 
 

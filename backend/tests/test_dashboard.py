@@ -31,6 +31,8 @@ def test_empty_dashboard(api):
         "income_month": 0,
         "debt_total": 0,
         "debtors": [],
+        "homework_to_review": 0,
+        "quizzes_to_review": 0,
     }
 
 

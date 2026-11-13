@@ -23,3 +23,7 @@ class DashboardOut(ResponseModel):
     income_month: int = Field(description="Оплати за поточний місяць, копійки")
     debt_total: int = Field(description="Сума боргів, копійки, ≥ 0")
     debtors: list[DebtorOut] = Field(description="Від найбільшого боргу")
+    homework_to_review: int = Field(description="ДЗ, які чекають на перевірку")
+    quizzes_to_review: int = Field(
+        description="Тести з письмовими відповідями, які чекають на репетитора"
+    )
