@@ -37,6 +37,7 @@ export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }
   const [startsAt, setStartsAt] = useState(initial ? isoToLocalInput(initial.starts_at) : "");
   const [duration, setDuration] = useState(String(initial?.duration_minutes ?? 60));
   const [priceInput, setPriceInput] = useState(initial ? kopecksToInput(initial.price) : "");
+  const [priceEdited, setPriceEdited] = useState(false);
   const [status, setStatus] = useState<LessonStatus>(initial?.status ?? "planned");
   const [topic, setTopic] = useState(initial?.topic ?? "");
   const [homework, setHomework] = useState(initial?.homework ?? "");
@@ -57,12 +58,12 @@ export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }
   }, [open, token, studentId]);
 
   useEffect(() => {
-    if (!studentId || initial || priceInput) return;
+    if (!studentId || initial || priceEdited) return;
     const student = students.find((s) => s.id === studentId);
     if (student) {
       setPriceInput(kopecksToInput(student.default_price));
     }
-  }, [studentId, students, initial, priceInput]);
+  }, [studentId, students, initial, priceEdited]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +168,10 @@ export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }
                 min="0"
                 step="0.01"
                 value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
+                onChange={(e) => {
+                  setPriceInput(e.target.value);
+                  setPriceEdited(true);
+                }}
                 required
               />
             </div>

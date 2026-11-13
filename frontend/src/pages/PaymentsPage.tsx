@@ -63,7 +63,11 @@ export function PaymentsPage() {
     const filters: { student_id?: string; from?: string; to?: string } = {};
     if (studentId) filters.student_id = studentId;
     if (from) filters.from = localInputToIso(`${from}T00:00`);
-    if (to) filters.to = localInputToIso(`${to}T00:00`);
+    if (to) {
+      const d = new Date(`${to}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      filters.to = localInputToIso(`${d.toISOString().slice(0, 10)}T00:00`);
+    }
     listPayments(token, filters)
       .then(setPayments)
       .catch(() => setError("Не вдалося завантажити оплати"))
