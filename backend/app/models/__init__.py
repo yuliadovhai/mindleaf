@@ -2,6 +2,8 @@
 
 from app.models.access import Invite, Relation, StudentLink
 from app.models.homework import (
+    HomeworkAssignment,
+    HomeworkMaterial,
     HomeworkSubmission,
     SubmissionPhoto,
     SubmissionStatus,
@@ -22,6 +24,8 @@ from app.models.student import Student
 from app.models.user import Role, User
 
 __all__ = [
+    "HomeworkAssignment",
+    "HomeworkMaterial",
     "AssignmentStatus",
     "GradedBy",
     "HomeworkSubmission",
