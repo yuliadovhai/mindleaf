@@ -1,17 +1,29 @@
-import { useState, useEffect, useCallback } from "react";
+import { useSyncExternalStore, useCallback } from "react";
+
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+function subscribe(listener: Listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getSnapshot() {
+  return window.location.pathname;
+}
+
+function notify() {
+  listeners.forEach((l) => l());
+}
+
+window.addEventListener("popstate", notify);
 
 export function useRouter() {
-  const [path, setPath] = useState(window.location.pathname);
-
-  useEffect(() => {
-    const handler = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, []);
+  const path = useSyncExternalStore(subscribe, getSnapshot);
 
   const navigate = useCallback((to: string) => {
     window.history.pushState({}, "", to);
-    setPath(to);
+    notify();
   }, []);
 
   return { path, navigate };
