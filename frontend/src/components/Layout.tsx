@@ -5,6 +5,7 @@ import { useRouter } from "../lib/router";
 import { ROLE_LABEL } from "../lib/labels";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Logo } from "./Logo";
 import {
   BookOpen,
   CalendarDays,
@@ -66,22 +67,6 @@ function isActive(current: string, to: string): boolean {
   return current.startsWith(to);
 }
 
-function MindleafLogo() {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="relative h-8 w-8 rounded-xl bg-[#6D5DF6] flex items-center justify-center shadow-sm">
-        <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-          <path
-            d="M12 20C12 20 4 14 4 8C4 5.8 5.8 4 8 4C9.6 4 11 5 12 6.4C13 5 14.4 4 16 4C18.2 4 20 5.8 20 8C20 14 12 20 12 20Z"
-            fill="white"
-          />
-        </svg>
-      </div>
-      <span className="text-base font-bold tracking-tight text-foreground">mindleaf</span>
-    </div>
-  );
-}
-
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { navigate, path } = useRouter();
   const session = useSession();
@@ -95,7 +80,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-5">
-        <MindleafLogo />
+        <Logo />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-3">

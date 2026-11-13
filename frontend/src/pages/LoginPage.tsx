@@ -1,5 +1,6 @@
 import { DEV_LOGIN, devLogin, useSession } from "../auth/session";
 import { Button } from "../components/ui/button";
+import { Logo } from "../components/Logo";
 import { GraduationCap, UserRound, Users } from "lucide-react";
 
 /** Demo accounts created by `make seed`. */
@@ -40,22 +41,14 @@ export function LoginPage() {
       <div className="w-full max-w-md space-y-6 p-8 bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
         <div className="text-center space-y-3">
           <div className="flex justify-center">
-            <div className="relative h-14 w-14 rounded-2xl bg-[#6D5DF6] flex items-center justify-center shadow-sm">
-              <svg viewBox="0 0 24 24" fill="none" className="h-9 w-9">
-                <path
-                  d="M12 20C12 20 4 14 4 8C4 5.8 5.8 4 8 4C9.6 4 11 5 12 6.4C13 5 14.4 4 16 4C18.2 4 20 5.8 20 8C20 14 12 20 12 20Z"
-                  fill="white"
-                />
-              </svg>
-            </div>
+            <Logo size="lg" showName={false} />
           </div>
-          <h1 className="text-2xl font-bold">
-            Кабінет{" "}
-            <span className="bg-gradient-to-r from-[#6D5DF6] to-[#4F7BF7] bg-clip-text text-transparent">
-              репетитора
-            </span>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#6D5DF6] to-[#4F7BF7] bg-clip-text text-transparent">
+            mindleaf
           </h1>
-          <p className="text-muted-foreground text-sm">Увійдіть, щоб продовжити</p>
+          <p className="text-muted-foreground text-sm">
+            Навчання, яке видно — для репетиторів, учнів і батьків
+          </p>
         </div>
 
         {DEV_LOGIN && (
