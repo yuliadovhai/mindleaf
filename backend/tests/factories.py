@@ -26,3 +26,15 @@ def create_payment(client: TestClient, student_id: str, **fields) -> dict:
     response = client.post("/api/payments", json=body)
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def create_invite(client: TestClient, student_id: str, relation: str) -> dict:
+    response = client.post(
+        f"/api/students/{student_id}/invites", json={"relation": relation}
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def redeem(client: TestClient, code: str):
+    return client.post("/api/invites/redeem", json={"code": code})

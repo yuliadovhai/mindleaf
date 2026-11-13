@@ -22,7 +22,7 @@ from sqlalchemy import Connection, Engine, create_engine, text  # noqa: E402
 from sqlalchemy.engine import make_url  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from app.auth.dependencies import get_current_tutor  # noqa: E402
+from app.auth.dependencies import get_current_tutor, get_current_user  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
@@ -122,6 +122,34 @@ def as_tutor(db_client: TestClient):
 
     def switch(tutor) -> TestClient:
         app.dependency_overrides[get_current_tutor] = lambda: tutor
+        app.dependency_overrides[get_current_user] = lambda: tutor
         return db_client
 
     return switch
+
+
+@pytest.fixture
+def as_user(db_client: TestClient):
+    """as_user(user) -> the client acting as any user (student, parent, no role).
+
+    Only get_current_user is replaced, so the real role checks of
+    get_current_tutor / get_current_member still run.
+    """
+
+    def switch(user) -> TestClient:
+        app.dependency_overrides.pop(get_current_tutor, None)
+        app.dependency_overrides[get_current_user] = lambda: user
+        return db_client
+
+    return switch
+
+
+@pytest.fixture
+def make_user(db: Session):
+    def make(sub: str, role: str | None = None) -> User:
+        user = User(cognito_sub=sub, role=role, name=sub.title())
+        db.add(user)
+        db.flush()
+        return user
+
+    return make

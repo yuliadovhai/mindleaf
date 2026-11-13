@@ -2,7 +2,14 @@
 
 
 class NotFound(Exception):
-    """The record does not exist or is not visible to the caller (same answer)."""
+    """The record does not exist or is not visible to the caller (same answer).
+
+    The detail defaults to "not found"; a few endpoints use a specific code.
+    """
+
+    def __init__(self, code: str = "not found") -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class StudentNotFound(Exception):

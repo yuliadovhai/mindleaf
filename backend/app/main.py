@@ -2,7 +2,7 @@ from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import dashboard, health, lessons, me, payments, students
+from app.api import access, dashboard, health, lessons, me, payments, students
 from app.schemas.common import ErrorResponse
 from app.services.errors import (
     Conflict,
@@ -30,7 +30,7 @@ if settings.cors_origins:
 
 @app.exception_handler(NotFound)
 def _not_found(request: Request, exc: NotFound) -> JSONResponse:
-    return JSONResponse({"detail": "not found"}, status.HTTP_404_NOT_FOUND)
+    return JSONResponse({"detail": exc.code}, status.HTTP_404_NOT_FOUND)
 
 
 @app.exception_handler(StudentNotFound)
@@ -69,5 +69,6 @@ api.include_router(lessons.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT
 api.include_router(
     payments.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
 )
+api.include_router(access.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)
