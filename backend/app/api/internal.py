@@ -13,10 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.schemas.common import RequestModel, ResponseModel
-from app.services import grading
+from app.services import generation, grading
 from app.settings import settings
+from app.storage import Storage, get_storage
 
-router = APIRouter(prefix="/internal/grading", tags=["internal (grader)"])
+router = APIRouter(prefix="/internal/grading", tags=["internal (AI worker)"])
+generation_router = APIRouter(
+    prefix="/internal/generation", tags=["internal (AI worker)"]
+)
 
 
 def get_grader_token() -> str:
@@ -104,3 +108,68 @@ def post_failure(
     return GradingOutcome(
         assignment_id=assignment.id, status=assignment.status, score=assignment.score
     )
+
+
+# ---------- quiz generation ----------
+
+
+class GenerationTaskOut(ResponseModel):
+    job_id: uuid.UUID
+    material_title: str
+    content_type: str
+    download_url: str
+    question_count: int
+    include_written: bool
+    instructions: str | None
+
+
+class GeneratedQuiz(RequestModel):
+    model: Annotated[str, Field(max_length=100)]
+    quiz: dict = Field(description="Тіло як у POST /api/quizzes; API перевіряє його")
+
+
+class GenerationFailure(RequestModel):
+    reason: Annotated[str, Field(max_length=200)] = "failed"
+
+
+class GenerationOutcome(ResponseModel):
+    job_id: uuid.UUID
+    status: str
+    quiz_id: uuid.UUID | None
+
+
+@generation_router.post("/claim", response_model=list[GenerationTaskOut])
+def claim_generation(
+    limit: int = Query(2, ge=1, le=5),
+    _: None = Depends(require_grader),
+    session: Session = Depends(get_session),
+    storage: Storage = Depends(get_storage),
+) -> list[GenerationTaskOut]:
+    """Lease pending jobs for 5 minutes; each comes with a material download link."""
+    return [
+        GenerationTaskOut.model_validate(task, from_attributes=True)
+        for task in generation.claim(session, storage, limit)
+    ]
+
+
+@generation_router.post("/{job_id}/result", response_model=GenerationOutcome)
+def post_generation(
+    job_id: uuid.UUID,
+    body: GeneratedQuiz,
+    _: None = Depends(require_grader),
+    session: Session = Depends(get_session),
+) -> GenerationOutcome:
+    """An invalid quiz marks the job failed (422 invalid_quiz)."""
+    job = generation.apply_result(session, job_id, body.quiz)
+    return GenerationOutcome(job_id=job.id, status=job.status, quiz_id=job.quiz_id)
+
+
+@generation_router.post("/{job_id}/failed", response_model=GenerationOutcome)
+def post_generation_failure(
+    job_id: uuid.UUID,
+    body: GenerationFailure,
+    _: None = Depends(require_grader),
+    session: Session = Depends(get_session),
+) -> GenerationOutcome:
+    job = generation.fail(session, job_id, body.reason)
+    return GenerationOutcome(job_id=job.id, status=job.status, quiz_id=job.quiz_id)

@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy import func, select
 
+from app import seed as seed_module
 from app.models import (
     HomeworkSubmission,
     Lesson,
@@ -16,6 +17,13 @@ from app.seed import UPCOMING_TOPICS, seed
 from app.services import clock, dashboard
 from app.settings import TIMEZONE
 from tests.factories import create_student
+
+
+@pytest.fixture(autouse=True)
+def seed_storage(storage, monkeypatch):
+    """The demo material is written to a temp dir, not the uploads volume."""
+    monkeypatch.setattr(seed_module, "default_storage", lambda: storage)
+    return storage
 
 
 def _count(db, model, tutor_id):
@@ -114,3 +122,17 @@ def test_seed_parent_has_a_cancellable_and_a_late_lesson(db, as_user, monkeypatc
 
     flags = [lesson["can_cancel"] for lesson in lessons.json()]
     assert flags == [False, True]
+
+
+def test_seed_material_and_homework_assignment(db, as_user):
+    seed(db)
+    kid = db.scalars(select(User).where(User.cognito_sub == "local-dev-student")).one()
+    client = as_user(kid)
+
+    materials = client.get("/api/portal/materials").json()
+    assert [m["title"] for m in materials] == ["Дроби: конспект"]
+    assert b"#" in client.get(materials[0]["download_url"]).content
+    homework = client.get("/api/portal/homework-assignments").json()
+    assert [(h["title"], len(h["materials"])) for h in homework] == [
+        ("Дроби: вправи 20–25", 1)
+    ]

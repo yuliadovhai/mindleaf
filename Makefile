@@ -28,12 +28,18 @@ seed:
 migrate-local:
 	$(BACKEND_RUN) alembic upgrade head
 
-# Grades written quiz answers once against the running backend (docker compose up).
+# One pass of the AI worker against the running backend (docker compose up):
+# grades written quiz answers, then turns queued materials into draft quizzes.
+# It shares the backend container's network, so material links
+# (http://localhost:8000/api/files/...) work as they do for the browser.
 # GRADER=fake (default, free) or GRADER=bedrock (Claude Haiku 5.5 with your
-# local AWS credentials; costs a fraction of a cent per quiz).
+# local AWS credentials; a fraction of a cent per quiz).
 GRADER ?= fake
+GRADER_TOKEN ?= local-dev-grader-token
 AWS_DIR ?= $(HOME)/.aws
 grade:
-	$(COMPOSE) run --rm --no-deps \
+	@test -n "$$($(COMPOSE) ps -q backend)" || (echo "start the backend first: docker compose up -d"; exit 1)
+	docker run --rm --network container:$$($(COMPOSE) ps -q backend) \
+	  -e GRADER_TOKEN=$(GRADER_TOKEN) \
 	  $(if $(filter bedrock,$(GRADER)),-v "$(AWS_DIR):/root/.aws:ro" -e AWS_PROFILE -e AWS_REGION=us-east-1) \
-	  backend python -m app.grader.run --api http://backend:8000 --grader $(GRADER)
+	  tutor-cabinet-backend python -m app.grader.run --api http://localhost:8000 --grader $(GRADER)

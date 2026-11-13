@@ -7,6 +7,8 @@ a few payments and at least one debtor. Olena also gets a student account
 ("<sub>-student") and a parent account ("<sub>-parent"), a homework answer
 waiting for review, and a quiz: one assignment still open and one submitted,
 whose written answer waits for the grader (run `make grade` to grade it).
+With local storage it also writes a text material ("Дроби: конспект"), shares
+it with Olena and gives her a homework assignment with it attached.
 
 Re-running replaces the demo data of this tutor only, so the lessons always
 fall on the current week. Last week's done lessons are added too: without them
@@ -14,19 +16,25 @@ a Monday-morning seed would have no debt to show.
 """
 
 import argparse
+import uuid
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.models import (
+    HomeworkAssignment,
+    HomeworkMaterial,
     HomeworkSubmission,
     Lesson,
     LessonStatus,
+    Material,
+    MaterialShare,
     Payment,
     PaymentMethod,
     Quiz,
     QuizAssignment,
+    QuizGeneration,
     Relation,
     Role,
     Student,
@@ -35,6 +43,7 @@ from app.models import (
 from app.schemas.quiz import AnswerIn, QuizIn
 from app.services import clock, quizzes, users
 from app.settings import TIMEZONE
+from app.storage import LocalStorage, default_storage
 
 DEFAULT_SUB = "local-dev"
 
@@ -138,7 +147,16 @@ def seed(session: Session, tutor_sub: str = DEFAULT_SUB) -> dict[str, int]:
     tutor = users.get_or_create(session, tutor_sub, name="Демо-репетитор")
     tutor.role = Role.tutor
     # Children first; the database cascades homework, answers, links, invites.
-    for model in (QuizAssignment, Quiz, Payment, Lesson, Student):
+    for model in (
+        QuizGeneration,
+        QuizAssignment,
+        Quiz,
+        HomeworkAssignment,
+        Payment,
+        Lesson,
+        Material,
+        Student,
+    ):
         session.execute(delete(model).where(model.tutor_id == tutor.id))
 
     students = [Student(tutor_id=tutor.id, **fields) for fields in STUDENTS]
@@ -234,6 +252,8 @@ def seed(session: Session, tutor_sub: str = DEFAULT_SUB) -> dict[str, int]:
     )
     session.commit()
 
+    _seed_material(session, tutor.id, olena.id, now)
+
     quiz = quizzes.create_quiz(session, tutor.id, QuizIn.model_validate(DEMO_QUIZ))
     quizzes.assign(session, tutor.id, quiz.id, olena.id, now + timedelta(days=3))
     taken = quizzes.assign(session, tutor.id, quiz.id, olena.id, None)
@@ -259,6 +279,55 @@ def seed(session: Session, tutor_sub: str = DEFAULT_SUB) -> dict[str, int]:
         "homework": 1,
         "quiz_assignments": 2,
     }
+
+
+DEMO_NOTES = """# Дроби: конспект
+
+Щоб додати дроби з різними знаменниками, зведи їх до спільного знаменника.
+Потім додай чисельники, а знаменник залиш без змін.
+Скорочення дробу не змінює його значення: 2/4 = 1/2.
+Щоб помножити дроби, перемнож окремо чисельники і знаменники.
+Мішане число 1 1/2 — це те саме, що 3/2.
+"""
+
+
+def _seed_material(session: Session, tutor_id, student_id, now: datetime) -> None:
+    """A text material shared with Olena and a homework assignment using it.
+
+    Only with local storage: the seed writes the file to the uploads volume.
+    """
+    storage = default_storage()
+    if not isinstance(storage, LocalStorage):
+        return
+    key = f"materials/{tutor_id}/{uuid.uuid4().hex}.md"
+    data = DEMO_NOTES.encode()
+    path = storage.path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    material = Material(
+        tutor_id=tutor_id,
+        title="Дроби: конспект",
+        description="Додавання, скорочення і множення дробів",
+        storage_key=key,
+        content_type="text/markdown",
+        size_bytes=len(data),
+        original_name="drobi.md",
+    )
+    material.shares.append(MaterialShare(tutor_id=tutor_id, student_id=student_id))
+    session.add(material)
+    session.flush()
+    assignment = HomeworkAssignment(
+        tutor_id=tutor_id,
+        student_id=student_id,
+        title="Дроби: вправи 20–25",
+        description="Прочитай конспект і розв'яжи вправи 20–25. Фото розв'язку — сюди.",
+        due_at=now + timedelta(days=5),
+    )
+    assignment.attachments.append(
+        HomeworkMaterial(tutor_id=tutor_id, material_id=material.id)
+    )
+    session.add(assignment)
+    session.commit()
 
 
 def _member(session: Session, sub: str, name: str, role: Role):

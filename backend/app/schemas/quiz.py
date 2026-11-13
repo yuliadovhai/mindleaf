@@ -3,7 +3,13 @@ from typing import Annotated, Any, Self
 
 from pydantic import Field, model_validator
 
-from app.models import AssignmentStatus, GradedBy, QuestionKind
+from app.models import (
+    AssignmentStatus,
+    GenerationStatus,
+    GradedBy,
+    QuestionKind,
+    QuizStatus,
+)
 from app.schemas.common import InDatetime, OutDatetime, RequestModel, ResponseModel
 
 Points = Annotated[int, Field(ge=1, le=100)]
@@ -74,6 +80,10 @@ class QuizOut(ResponseModel):
     id: uuid.UUID
     title: str
     description: str | None
+    status: QuizStatus = Field(
+        description="draft — згенерована чернетка, ще не призначити"
+    )
+    source_material_id: uuid.UUID | None
     questions: list[QuestionOut]
     max_score: int
     assignment_count: int
@@ -84,6 +94,7 @@ class QuizOut(ResponseModel):
 class QuizSummaryOut(ResponseModel):
     id: uuid.UUID
     title: str
+    status: QuizStatus
     question_count: int
     max_score: int
     assignment_count: int
@@ -199,3 +210,46 @@ class AnswerIn(RequestModel):
 
 class QuizSubmit(RequestModel):
     answers: list[AnswerIn] = Field(max_length=50)
+
+
+# ---------- AI generation from a material ----------
+
+
+class GenerationRequest(RequestModel):
+    question_count: Annotated[int, Field(ge=1, le=20)] = 8
+    include_written: bool = Field(
+        True, description="Додати питання з письмовою відповіддю (перевіряє ШІ)"
+    )
+    instructions: Annotated[str, Field(max_length=1000)] | None = Field(
+        None, description="Побажання: тема, рівень, на що звернути увагу"
+    )
+
+
+class GenerationOut(ResponseModel):
+    id: uuid.UUID
+    material_id: uuid.UUID | None
+    material_title: str | None
+    status: GenerationStatus
+    question_count: int
+    include_written: bool
+    instructions: str | None
+    quiz_id: uuid.UUID | None = Field(description="Чернетка, коли status = done")
+    error: str | None
+    created_at: OutDatetime
+    finished_at: OutDatetime | None
+
+    @classmethod
+    def of(cls, job: Any) -> "GenerationOut":
+        return cls(
+            id=job.id,
+            material_id=job.material_id,
+            material_title=job.material.title if job.material else None,
+            status=job.status,
+            question_count=job.question_count,
+            include_written=job.include_written,
+            instructions=job.instructions,
+            quiz_id=job.quiz_id,
+            error=job.error,
+            created_at=job.created_at,
+            finished_at=job.finished_at,
+        )

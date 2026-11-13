@@ -22,6 +22,7 @@ from app.models import (
     QuizAnswer,
     QuizAssignment,
     QuizQuestion,
+    QuizStatus,
     Role,
     User,
 )
@@ -93,11 +94,20 @@ def max_score(quiz: Quiz) -> int:
     return sum(question.points for question in quiz.questions)
 
 
-def create_quiz(session: Session, tutor_id: uuid.UUID, data: QuizIn) -> Quiz:
+def create_quiz(
+    session: Session,
+    tutor_id: uuid.UUID,
+    data: QuizIn,
+    *,
+    status: QuizStatus = QuizStatus.ready,
+    source_material_id: uuid.UUID | None = None,
+) -> Quiz:
     quiz = Quiz(
         tutor_id=tutor_id,
         title=data.title,
         description=data.description,
+        status=status,
+        source_material_id=source_material_id,
         questions=_questions(data),
     )
     session.add(quiz)
@@ -136,6 +146,15 @@ def replace_quiz(
     return quiz
 
 
+def publish_quiz(session: Session, tutor_id: uuid.UUID, quiz_id: uuid.UUID) -> Quiz:
+    """A reviewed draft becomes assignable."""
+    quiz = _get_quiz(session, tutor_id, quiz_id)
+    quiz.status = QuizStatus.ready
+    quiz.updated_at = clock.now()
+    session.commit()
+    return quiz
+
+
 def delete_quiz(session: Session, tutor_id: uuid.UUID, quiz_id: uuid.UUID) -> None:
     quiz = _get_quiz(session, tutor_id, quiz_id)
     if assignment_count(session, quiz.id):
@@ -155,6 +174,8 @@ def assign(
     due_at: datetime | None,
 ) -> QuizAssignment:
     quiz = _get_quiz(session, tutor_id, quiz_id)
+    if quiz.status == QuizStatus.draft:
+        raise Conflict("quiz_is_draft")
     try:
         student = students.get_owned(session, tutor_id, student_id)
     except NotFound:

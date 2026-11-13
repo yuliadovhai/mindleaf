@@ -13,12 +13,15 @@ from app.models.material import Material, MaterialShare
 from app.models.payment import Payment, PaymentMethod
 from app.models.quiz import (
     AssignmentStatus,
+    GenerationStatus,
     GradedBy,
     QuestionKind,
     Quiz,
     QuizAnswer,
     QuizAssignment,
+    QuizGeneration,
     QuizQuestion,
+    QuizStatus,
 )
 from app.models.student import Student
 from app.models.user import Role, User
@@ -27,6 +30,7 @@ __all__ = [
     "HomeworkAssignment",
     "HomeworkMaterial",
     "AssignmentStatus",
+    "GenerationStatus",
     "GradedBy",
     "HomeworkSubmission",
     "Invite",
@@ -40,7 +44,9 @@ __all__ = [
     "Quiz",
     "QuizAnswer",
     "QuizAssignment",
+    "QuizGeneration",
     "QuizQuestion",
+    "QuizStatus",
     "Relation",
     "Role",
     "Student",

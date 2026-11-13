@@ -14,13 +14,15 @@ from app.schemas.quiz import (
     AssignmentCreate,
     AssignmentDetailOut,
     AssignmentOut,
+    GenerationOut,
+    GenerationRequest,
     QuestionOut,
     QuizIn,
     QuizOut,
     QuizSubmit,
     QuizSummaryOut,
 )
-from app.services import quizzes
+from app.services import generation, quizzes
 
 router = APIRouter(tags=["quizzes"])
 
@@ -32,6 +34,8 @@ def _quiz_out(session: Session, quiz: Quiz) -> QuizOut:
         id=quiz.id,
         title=quiz.title,
         description=quiz.description,
+        status=quiz.status,
+        source_material_id=quiz.source_material_id,
         questions=[QuestionOut.model_validate(q) for q in quiz.questions],
         max_score=quizzes.max_score(quiz),
         assignment_count=quizzes.assignment_count(session, quiz.id),
@@ -52,6 +56,7 @@ def list_quizzes(
         QuizSummaryOut(
             id=quiz.id,
             title=quiz.title,
+            status=quiz.status,
             question_count=len(quiz.questions),
             max_score=quizzes.max_score(quiz),
             assignment_count=quizzes.assignment_count(session, quiz.id),
@@ -91,6 +96,58 @@ def replace_quiz(
     return _quiz_out(session, quizzes.replace_quiz(session, tutor.id, quiz_id, body))
 
 
+@router.post("/quizzes/{quiz_id}/publish", response_model=QuizOut)
+def publish_quiz(
+    quiz_id: uuid.UUID,
+    tutor: User = Depends(get_current_tutor),
+    session: Session = Depends(get_session),
+) -> QuizOut:
+    """A reviewed draft becomes a ready quiz that can be assigned."""
+    return _quiz_out(session, quizzes.publish_quiz(session, tutor.id, quiz_id))
+
+
+@router.post(
+    "/materials/{material_id}/generate-quiz",
+    response_model=GenerationOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={409: {"model": ErrorResponse, "description": "too_many_generations"}},
+)
+def generate_quiz(
+    material_id: uuid.UUID,
+    body: GenerationRequest,
+    tutor: User = Depends(get_current_tutor),
+    session: Session = Depends(get_session),
+) -> GenerationOut:
+    """Queue AI generation; the draft appears in /quizzes within about a minute."""
+    job = generation.request(
+        session,
+        tutor.id,
+        material_id,
+        question_count=body.question_count,
+        include_written=body.include_written,
+        instructions=body.instructions,
+    )
+    return GenerationOut.of(job)
+
+
+@router.get("/quiz-generations", response_model=list[GenerationOut])
+def list_generations(
+    tutor: User = Depends(get_current_tutor),
+    session: Session = Depends(get_session),
+) -> list[GenerationOut]:
+    """The latest 50 generation requests, newest first."""
+    return [GenerationOut.of(job) for job in generation.list_jobs(session, tutor.id)]
+
+
+@router.get("/quiz-generations/{job_id}", response_model=GenerationOut)
+def get_generation(
+    job_id: uuid.UUID,
+    tutor: User = Depends(get_current_tutor),
+    session: Session = Depends(get_session),
+) -> GenerationOut:
+    return GenerationOut.of(generation.get_job(session, tutor.id, job_id))
+
+
 @router.delete(
     "/quizzes/{quiz_id}", status_code=status.HTTP_204_NO_CONTENT, responses=IN_USE
 )
@@ -110,7 +167,9 @@ def delete_quiz(
     "/quizzes/{quiz_id}/assignments",
     response_model=AssignmentOut,
     status_code=status.HTTP_201_CREATED,
-    responses={409: {"model": ErrorResponse, "description": "student_archived"}},
+    responses={
+        409: {"model": ErrorResponse, "description": "student_archived | quiz_is_draft"}
+    },
 )
 def assign_quiz(
     quiz_id: uuid.UUID,

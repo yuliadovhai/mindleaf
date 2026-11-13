@@ -100,5 +100,6 @@ api.include_router(
 )
 api.include_router(files.router)
 api.include_router(internal.router)
+api.include_router(internal.generation_router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)
