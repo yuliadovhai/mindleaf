@@ -12,12 +12,14 @@ from app.api import (
     me,
     payments,
     portal,
+    quizzes,
     students,
 )
 from app.schemas.common import ErrorResponse
 from app.services.errors import (
     Conflict,
     Forbidden,
+    Invalid,
     NotFound,
     StudentArchived,
     StudentNotFound,
@@ -66,6 +68,11 @@ def _conflict(request: Request, exc: Conflict) -> JSONResponse:
     return JSONResponse({"detail": exc.code}, status.HTTP_409_CONFLICT)
 
 
+@app.exception_handler(Invalid)
+def _invalid(request: Request, exc: Invalid) -> JSONResponse:
+    return JSONResponse({"detail": exc.code}, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+
 UNAUTHORIZED = {401: {"model": ErrorResponse, "description": "Немає валідного токена"}}
 FORBIDDEN = {403: {"model": ErrorResponse, "description": "Роль не має доступу"}}
 NOT_FOUND = {404: {"model": ErrorResponse, "description": "Немає запису або він чужий"}}
@@ -85,6 +92,7 @@ api.include_router(portal.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_
 api.include_router(
     homework.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
 )
+api.include_router(quizzes.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
 api.include_router(files.router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

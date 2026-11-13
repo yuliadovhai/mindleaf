@@ -49,3 +49,61 @@ def create_invite(client: TestClient, student_id: str, relation: str) -> dict:
 
 def redeem(client: TestClient, code: str):
     return client.post("/api/invites/redeem", json={"code": code})
+
+
+QUIZ = {
+    "title": "Дроби",
+    "questions": [
+        {
+            "kind": "single",
+            "prompt": "1/2 + 1/4 = ?",
+            "points": 2,
+            "options": [
+                {"text": "3/4", "correct": True},
+                {"text": "2/6"},
+                {"text": "1/8"},
+            ],
+        },
+        {
+            "kind": "multiple",
+            "prompt": "Які дроби дорівнюють 1/2?",
+            "points": 3,
+            "options": [
+                {"text": "2/4", "correct": True},
+                {"text": "3/6", "correct": True},
+                {"text": "2/3"},
+            ],
+        },
+        {
+            "kind": "text",
+            "prompt": "Поясни, як додати дроби з різними знаменниками.",
+            "points": 5,
+            "reference_answer": "Звести до спільного знаменника і додати чисельники.",
+        },
+    ],
+}
+
+
+def create_quiz(client: TestClient, **fields) -> dict:
+    response = client.post("/api/quizzes", json={**QUIZ, **fields})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def assign_quiz(client: TestClient, quiz_id: str, student_id: str, **fields) -> dict:
+    response = client.post(
+        f"/api/quizzes/{quiz_id}/assignments", json={"student_id": student_id, **fields}
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def answers_for(quiz: dict, *, single: str, multiple: list[str], text: str | None):
+    q1, q2, q3 = quiz["questions"]
+    return {
+        "answers": [
+            {"question_id": q1["id"], "selected_options": [single]},
+            {"question_id": q2["id"], "selected_options": multiple},
+            {"question_id": q3["id"], "text_answer": text},
+        ]
+    }

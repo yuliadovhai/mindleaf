@@ -30,3 +30,11 @@ class Conflict(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+class Invalid(Exception):
+    """A value is well-formed but not acceptable here (422 with a code)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
