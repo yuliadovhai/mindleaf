@@ -9,10 +9,13 @@ BACKEND_RUN = $(COMPOSE) run --rm --build backend
 # data after signing in: make seed TUTOR_SUB=<sub>
 TUTOR_SUB ?= local-dev
 
-.PHONY: lint test seed migrate-local
+.PHONY: lint lint-frontend test seed migrate-local
 
-lint:
+lint: lint-frontend
 	$(COMPOSE) run --rm --build --no-deps backend sh -c "ruff check . && ruff format --check ."
+
+lint-frontend:
+	cd frontend && npm ci && npm run lint && npm run format:check
 
 test:
 	$(BACKEND_RUN) pytest
