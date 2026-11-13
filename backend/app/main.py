@@ -8,6 +8,7 @@ from app.api import (
     files,
     health,
     homework,
+    internal,
     lessons,
     me,
     payments,
@@ -94,5 +95,6 @@ api.include_router(
 )
 api.include_router(quizzes.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
 api.include_router(files.router)
+api.include_router(internal.router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

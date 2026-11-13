@@ -9,7 +9,7 @@ BACKEND_RUN = $(COMPOSE) run --rm --build backend
 # data after signing in: make seed TUTOR_SUB=<sub>
 TUTOR_SUB ?= local-dev
 
-.PHONY: lint lint-frontend test seed migrate-local
+.PHONY: lint lint-frontend test seed migrate-local grade
 
 lint: lint-frontend
 	$(COMPOSE) run --rm --build --no-deps backend sh -c "ruff check . && ruff format --check ."
@@ -27,3 +27,13 @@ seed:
 # The backend already migrates on start; this is for a new revision while it runs.
 migrate-local:
 	$(BACKEND_RUN) alembic upgrade head
+
+# Grades written quiz answers once against the running backend (docker compose up).
+# GRADER=fake (default, free) or GRADER=bedrock (Claude Haiku 5.5 with your
+# local AWS credentials; costs a fraction of a cent per quiz).
+GRADER ?= fake
+AWS_DIR ?= $(HOME)/.aws
+grade:
+	$(COMPOSE) run --rm --no-deps \
+	  $(if $(filter bedrock,$(GRADER)),-v "$(AWS_DIR):/root/.aws:ro" -e AWS_PROFILE -e AWS_REGION=us-east-1) \
+	  backend python -m app.grader.run --api http://backend:8000 --grader $(GRADER)
