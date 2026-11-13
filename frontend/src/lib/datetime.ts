@@ -63,6 +63,13 @@ export function isoToLocalInput(iso: string): string {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
 
+/** YYYY-MM-DD → YYYY-MM-DD, shifted by n days (pure UTC, no timezone drift) */
+export function addDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 function getKyivOffsetMinutes(d: Date): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TZ,

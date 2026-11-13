@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { formatMoney } from "../lib/money";
-import { formatDateTime, localInputToIso, todayKyiv } from "../lib/datetime";
+import { formatDateTime, localInputToIso, todayKyiv, addDays } from "../lib/datetime";
 import { useRouter } from "../lib/router";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 
@@ -71,11 +71,7 @@ export function LessonsPage() {
     setError("");
     const filters: { from?: string; to?: string; student_id?: string; status?: LessonStatus } = {};
     if (from) filters.from = localInputToIso(`${from}T00:00`);
-    if (to) {
-      const d = new Date(`${to}T00:00:00`);
-      d.setDate(d.getDate() + 1);
-      filters.to = localInputToIso(`${d.toISOString().slice(0, 10)}T00:00`);
-    }
+    if (to) filters.to = localInputToIso(`${addDays(to, 1)}T00:00`);
     if (studentId) filters.student_id = studentId;
     if (status) filters.status = status;
     listLessons(token, filters)
