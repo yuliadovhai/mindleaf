@@ -1,5 +1,6 @@
 import { DEV_LOGIN, devLogin, useSession } from "../auth/session";
 import { Button } from "../components/ui/button";
+import { Logo } from "../components/Logo";
 import { GraduationCap, UserRound, Users } from "lucide-react";
 
 /** Demo accounts created by `make seed`. */
@@ -37,10 +38,17 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md space-y-6 p-8 bg-background rounded-xl border shadow-sm">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">Кабінет репетитора</h1>
-          <p className="text-muted-foreground text-sm">Увійдіть, щоб продовжити</p>
+      <div className="w-full max-w-md space-y-6 p-8 bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <Logo size="lg" showName={false} />
+          </div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#6D5DF6] to-[#4F7BF7] bg-clip-text text-transparent">
+            mindleaf
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Навчання, яке видно — для репетиторів, учнів і батьків
+          </p>
         </div>
 
         {DEV_LOGIN && (
@@ -50,7 +58,7 @@ export function LoginPage() {
               <button
                 key={sub}
                 onClick={() => devLogin(sub)}
-                className="w-full flex items-center gap-3 rounded-lg border px-4 py-3 text-left hover:bg-accent transition-colors"
+                className="w-full flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-left hover:border-primary/40 hover:bg-accent/50 transition-all"
               >
                 <Icon className="h-6 w-6 text-primary shrink-0" />
                 <span>

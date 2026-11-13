@@ -98,7 +98,10 @@ function Submissions({ tab }: { tab: "submitted" | "reviewed" }) {
         </p>
       )}
       {data?.map((item) => (
-        <div key={item.id} className="rounded-lg border bg-card p-4 space-y-3">
+        <div
+          key={item.id}
+          className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium">
               {item.student_full_name}
@@ -173,7 +176,7 @@ function Assignments() {
       {data?.map((a) => (
         <div
           key={a.id}
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
         >
           <span>
             <span className="block font-medium">

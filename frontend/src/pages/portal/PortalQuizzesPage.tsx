@@ -34,7 +34,7 @@ export function PortalQuizzesPage() {
           <button
             key={a.id}
             onClick={() => navigate(`/quizzes/${a.id}`)}
-            className="w-full flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3 text-left hover:bg-muted/50"
+            className="w-full flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-accent/40 transition-colors shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
           >
             <span>
               <span className="block font-medium">{a.quiz_title}</span>

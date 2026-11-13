@@ -24,6 +24,7 @@ import { Textarea } from "../../components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -74,7 +75,10 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   };
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="rounded-lg border bg-card p-4 space-y-3">
+    <form
+      onSubmit={(e) => void submit(e)}
+      className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
+    >
       <h2 className="font-semibold flex items-center gap-2">
         <FileUp className="h-5 w-5" />
         Завантажити матеріал
@@ -154,6 +158,9 @@ function ShareDialog({
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>Хто бачить «{material?.title}»</DialogTitle>
+          <DialogDescription className="sr-only">
+            Оберіть учнів, які матимуть доступ до цього матеріалу
+          </DialogDescription>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Обрані учні та їхні батьки побачать матеріал у своєму кабінеті.
@@ -240,6 +247,9 @@ function GenerateDialog({
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>Тест з «{material?.title}»</DialogTitle>
+          <DialogDescription className="sr-only">
+            Налаштуйте параметри генерації тесту з цього матеріалу
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
@@ -292,7 +302,7 @@ function GenerationRow({ job }: { job: Generation }) {
   const variant =
     job.status === "done" ? "success" : job.status === "failed" ? "destructive" : "secondary";
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-2 text-sm shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
       <span>
         {job.material_title ?? "Видалений матеріал"} · {job.question_count} питань ·{" "}
         {formatDateTime(job.created_at)}
@@ -368,7 +378,10 @@ export function MaterialsPage() {
               <p className="text-sm text-muted-foreground">Матеріалів ще немає.</p>
             )}
             {data.materials.map((m) => (
-              <div key={m.id} className="rounded-lg border bg-card p-4 space-y-2">
+              <div
+                key={m.id}
+                className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-medium">{m.title}</p>

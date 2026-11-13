@@ -7,7 +7,14 @@ import { localInputToIso } from "../lib/datetime";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 export function AssignQuizDialog({
   quiz,
@@ -61,6 +68,9 @@ export function AssignQuizDialog({
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>Призначити «{quiz?.title}»</DialogTitle>
+          <DialogDescription className="sr-only">
+            Форма для призначення тесту учню
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void save(e)} className="space-y-4">
           <div className="space-y-1">

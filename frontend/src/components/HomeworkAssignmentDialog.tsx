@@ -9,7 +9,14 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 export function HomeworkAssignmentDialog({
   open,
@@ -72,6 +79,9 @@ export function HomeworkAssignmentDialog({
       <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Нове домашнє завдання</DialogTitle>
+          <DialogDescription className="sr-only">
+            Форма для створення нового домашнього завдання учню
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void save(e)} className="space-y-4">
           <div className="space-y-1">

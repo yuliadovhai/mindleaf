@@ -111,7 +111,10 @@ export function PortalQuizPage({ id }: { id: string }) {
 
         {taking
           ? data.questions.map((q, i) => (
-              <div key={q.id} className="rounded-lg border bg-card p-4 space-y-3">
+              <div
+                key={q.id}
+                className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-medium">
                     {i + 1}. {q.prompt}

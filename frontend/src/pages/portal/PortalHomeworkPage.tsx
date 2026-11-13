@@ -65,7 +65,7 @@ export function PortalHomeworkPage() {
             <button
               key={a.id}
               onClick={() => navigate(`/homework/${a.id}`)}
-              className="w-full rounded-lg border bg-card px-4 py-3 text-left hover:bg-muted/50 space-y-1"
+              className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-accent/40 transition-colors space-y-1 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">{a.title}</span>
@@ -93,7 +93,7 @@ export function PortalHomeworkPage() {
             <button
               key={lesson.id}
               onClick={() => navigate(`/lessons/${lesson.id}/homework`)}
-              className="w-full rounded-lg border bg-card px-4 py-3 text-left hover:bg-muted/50 space-y-1"
+              className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-left hover:bg-accent/40 transition-colors space-y-1 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm text-muted-foreground">

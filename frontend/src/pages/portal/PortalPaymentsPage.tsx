@@ -45,7 +45,10 @@ export function PortalPaymentsPage() {
         <h1 className="text-2xl font-bold">Оплати</h1>
         <div className="flex flex-wrap gap-3">
           {data.students.map((s) => (
-            <div key={s.id} className="rounded-lg border bg-card px-4 py-3">
+            <div
+              key={s.id}
+              className="rounded-2xl border border-border bg-card px-4 py-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
+            >
               <p className="text-sm text-muted-foreground">{s.full_name}</p>
               <p
                 className={`text-lg font-semibold ${(s.balance ?? 0) < 0 ? "text-destructive" : "text-green-700"}`}
@@ -64,7 +67,7 @@ export function PortalPaymentsPage() {
         {data.payments.length === 0 ? (
           <p className="text-sm text-muted-foreground">Оплат ще не було.</p>
         ) : (
-          <div className="rounded-lg border overflow-hidden">
+          <div>
             <Table>
               <TableHeader>
                 <TableRow>
