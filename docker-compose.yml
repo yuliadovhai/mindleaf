@@ -26,6 +26,16 @@ services:
       COGNITO_AUTHORITY: ${COGNITO_AUTHORITY:-https://cognito-idp.us-east-1.amazonaws.com/us-east-1_NOTCREATED}
       COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-not-created-yet}
       CORS_ORIGINS: http://localhost:5173
+      # Homework photos on a local volume, served by the API itself (S3 in AWS).
+      STORAGE_BACKEND: local
+      UPLOADS_DIR: /data/uploads
+      PUBLIC_API_URL: http://localhost:8000
+      FILES_SECRET: local-dev-only-secret
+      # Written quiz answers wait for the grader (run `make grade` locally).
+      AI_GRADER: "on"
+      GRADER_TOKEN: local-dev-grader-token
+    volumes:
+      - uploads:/data/uploads
     ports:
       - "8000:8000"
     depends_on:
@@ -44,3 +54,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

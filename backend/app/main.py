@@ -5,7 +5,9 @@ from fastapi.responses import JSONResponse
 from app.api import (
     access,
     dashboard,
+    files,
     health,
+    homework,
     lessons,
     me,
     payments,
@@ -80,5 +82,9 @@ api.include_router(
 )
 api.include_router(access.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
 api.include_router(portal.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
+api.include_router(
+    homework.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
+)
+api.include_router(files.router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

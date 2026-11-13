@@ -1,65 +1,8 @@
 """The cabinet of students and parents: what each role sees and may do."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-import pytest
-
-from app.services import clock
-from app.settings import TIMEZONE
-from tests.factories import (
-    create_invite,
-    create_lesson,
-    create_payment,
-    create_student,
-    redeem,
-)
-
-NOW = datetime(2026, 11, 13, 12, 0, tzinfo=TIMEZONE)
-
-
-def iso(delta: timedelta) -> str:
-    return (NOW + delta).isoformat()
-
-
-@pytest.fixture
-def family(as_tutor, as_user, tutor_a, make_user, monkeypatch):
-    """Tutor A with Olena (linked: kid + mom) and Andrii (linked to nobody)."""
-    monkeypatch.setattr(clock, "now", lambda: NOW)
-    tutor = as_tutor(tutor_a)
-    olena = create_student(tutor, full_name="Олена", default_price=50000)
-    andrii = create_student(tutor, full_name="Андрій", default_price=40000)
-    in_3_days = create_lesson(tutor, olena["id"], starts_at=iso(timedelta(days=3)))
-    in_10_hours = create_lesson(
-        tutor, olena["id"], starts_at=iso(timedelta(hours=10)), homework="№ 5"
-    )
-    yesterday = create_lesson(
-        tutor,
-        olena["id"],
-        starts_at=iso(timedelta(days=-1)),
-        status="done",
-        notes="приватна нотатка",
-    )
-    hidden = create_lesson(tutor, andrii["id"], starts_at=iso(timedelta(days=2)))
-    payment = create_payment(tutor, olena["id"], amount=20000, comment="готівкою")
-    create_payment(tutor, andrii["id"], amount=99000)
-    parent_code = create_invite(tutor, olena["id"], "parent")["code"]
-    student_code = create_invite(tutor, olena["id"], "student")["code"]
-
-    mom, kid = make_user("mom"), make_user("kid")
-    assert redeem(as_user(mom), parent_code).status_code == 200
-    assert redeem(as_user(kid), student_code).status_code == 200
-    return {
-        "tutor": tutor_a,
-        "mom": mom,
-        "kid": kid,
-        "olena": olena,
-        "andrii": andrii,
-        "in_3_days": in_3_days,
-        "in_10_hours": in_10_hours,
-        "yesterday": yesterday,
-        "hidden": hidden,
-        "payment": payment,
-    }
+from tests.factories import NOW, iso
 
 
 def test_parent_sees_balance_student_does_not(as_user, family):

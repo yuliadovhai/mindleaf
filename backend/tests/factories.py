@@ -1,6 +1,17 @@
 """Small helpers that create records through the API."""
 
+from datetime import datetime, timedelta
+
 from fastapi.testclient import TestClient
+
+from app.settings import TIMEZONE
+
+# Friday 13 November 2026, 12:00 in Kyiv: the frozen "now" of the portal tests.
+NOW = datetime(2026, 11, 13, 12, 0, tzinfo=TIMEZONE)
+
+
+def iso(delta: timedelta) -> str:
+    return (NOW + delta).isoformat()
 
 
 def create_student(client: TestClient, **fields) -> dict:

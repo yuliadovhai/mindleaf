@@ -12,6 +12,7 @@ os.environ.setdefault("COGNITO_AUTHORITY", "https://cognito.test/us-east-1_TEST"
 os.environ.setdefault("COGNITO_CLIENT_ID", "test-client")
 
 from collections.abc import Iterator  # noqa: E402
+from datetime import timedelta  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
@@ -26,6 +27,16 @@ from app.auth.dependencies import get_current_tutor, get_current_user  # noqa: E
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
+from app.services import clock  # noqa: E402
+from tests.factories import (  # noqa: E402
+    NOW,
+    create_invite,
+    create_lesson,
+    create_payment,
+    create_student,
+    iso,
+    redeem,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -155,3 +166,57 @@ def make_user(db: Session):
         return user
 
     return make
+
+
+# ---------- a family: tutor A, a card with a linked student and parent ----------
+
+
+@pytest.fixture
+def family(as_tutor, as_user, tutor_a, make_user, monkeypatch):
+    """Tutor A with Olena (linked: kid + mom) and Andrii (linked to nobody)."""
+    monkeypatch.setattr(clock, "now", lambda: NOW)
+    tutor = as_tutor(tutor_a)
+    olena = create_student(tutor, full_name="Олена", default_price=50000)
+    andrii = create_student(tutor, full_name="Андрій", default_price=40000)
+    in_3_days = create_lesson(tutor, olena["id"], starts_at=iso(timedelta(days=3)))
+    in_10_hours = create_lesson(
+        tutor, olena["id"], starts_at=iso(timedelta(hours=10)), homework="№ 5"
+    )
+    yesterday = create_lesson(
+        tutor,
+        olena["id"],
+        starts_at=iso(timedelta(days=-1)),
+        status="done",
+        notes="приватна нотатка",
+    )
+    hidden = create_lesson(tutor, andrii["id"], starts_at=iso(timedelta(days=2)))
+    payment = create_payment(tutor, olena["id"], amount=20000, comment="готівкою")
+    create_payment(tutor, andrii["id"], amount=99000)
+    parent_code = create_invite(tutor, olena["id"], "parent")["code"]
+    student_code = create_invite(tutor, olena["id"], "student")["code"]
+
+    mom, kid = make_user("mom"), make_user("kid")
+    assert redeem(as_user(mom), parent_code).status_code == 200
+    assert redeem(as_user(kid), student_code).status_code == 200
+    return {
+        "tutor": tutor_a,
+        "mom": mom,
+        "kid": kid,
+        "olena": olena,
+        "andrii": andrii,
+        "in_3_days": in_3_days,
+        "in_10_hours": in_10_hours,
+        "yesterday": yesterday,
+        "hidden": hidden,
+        "payment": payment,
+    }
+
+
+@pytest.fixture
+def storage(tmp_path):
+    """Homework photos go to a temp dir, served by the test client."""
+    from app.storage import LocalStorage, get_storage
+
+    local = LocalStorage(str(tmp_path), "test-secret", "http://testserver")
+    app.dependency_overrides[get_storage] = lambda: local
+    return local

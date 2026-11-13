@@ -20,6 +20,18 @@ class Settings:
     cognito_client_id: str
     cognito_jwks: str | None
     cors_origins: tuple[str, ...]
+    # Homework photos: "s3" in AWS (presigned URLs, signed locally, no network
+    # needed), "local" for docker compose (files on a volume, served by the API).
+    storage_backend: str
+    uploads_bucket: str
+    uploads_dir: str
+    files_secret: str
+    public_api_url: str
+    aws_region: str
+    # Shared secret of the grader Lambda; empty disables /api/internal.
+    grader_token: str
+    # "on": written answers wait for the grader; "off": they go to the tutor.
+    ai_grader: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -30,6 +42,16 @@ class Settings:
             cognito_client_id=os.environ.get("COGNITO_CLIENT_ID", ""),
             cognito_jwks=os.environ.get("COGNITO_JWKS") or None,
             cors_origins=tuple(o.strip() for o in origins.split(",") if o.strip()),
+            storage_backend=os.environ.get("STORAGE_BACKEND", "local"),
+            uploads_bucket=os.environ.get("UPLOADS_BUCKET", ""),
+            uploads_dir=os.environ.get("UPLOADS_DIR", "/data/uploads"),
+            files_secret=os.environ.get("FILES_SECRET", ""),
+            public_api_url=os.environ.get(
+                "PUBLIC_API_URL", "http://localhost:8000"
+            ).rstrip("/"),
+            aws_region=os.environ.get("AWS_REGION", "us-east-1"),
+            grader_token=os.environ.get("GRADER_TOKEN", ""),
+            ai_grader=os.environ.get("AI_GRADER", "on"),
         )
 
 
