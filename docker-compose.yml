@@ -1,0 +1,46 @@
+name: tutor-cabinet
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tutor
+      POSTGRES_PASSWORD: tutor
+      POSTGRES_DB: tutor_cabinet
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutor -d tutor_cabinet"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://tutor:tutor@postgres:5432/tutor_cabinet
+      TEST_DATABASE_URL: postgresql+psycopg://tutor:tutor@postgres:5432/tutor_cabinet_test
+      # Public identifiers of the dev user pool (they are in the frontend bundle
+      # too). Until infra/ creates the pool, every authenticated call returns 401.
+      COGNITO_AUTHORITY: ${COGNITO_AUTHORITY:-https://cognito-idp.us-east-1.amazonaws.com/us-east-1_NOTCREATED}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-not-created-yet}
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  pgdata:

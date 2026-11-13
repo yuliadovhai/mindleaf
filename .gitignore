@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+
+# Node
+node_modules/
+dist/
+
+# Terraform
+infra/.terraform/
+
+# Local env
+.env
+.env.*
+.DS_Store

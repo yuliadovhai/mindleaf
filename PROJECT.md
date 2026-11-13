@@ -25,8 +25,7 @@ Redis, черг, nginx, ALB, ECS/Fargate, Kubernetes, окремого серв�
 tutor-cabinet/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml
-│       └── deploy.yml
+│       └── backend.yml            # ci.yml і deploy.yml додаються разом з frontend/ та infra/
 ├── .gitignore
 ├── Makefile
 ├── PROJECT.md
@@ -35,6 +34,7 @@ tutor-cabinet/
 ├── backend/
 │   ├── Dockerfile
 │   ├── Dockerfile.lambda
+│   ├── .dockerignore
 │   ├── pyproject.toml
 │   ├── alembic.ini
 │   ├── migrations/
@@ -168,10 +168,10 @@ Ruff: `target-version = "py312"`, `line-length = 88`, `select = ["E", "F", "I", 
 | `app/settings.py` | Читає змінні середовища (таблиця нижче) в один незмінний об'єкт `settings`. Не імпортує `app.db`. |
 | `app/db.py` | `Base` (DeclarativeBase), engine з `DATABASE_URL` (`pool_pre_ping=True`; у Lambda — пул на одне з'єднання), `get_session` як FastAPI-залежність. |
 | `app/lambda_handler.py` | Вхід Lambda. Подія `{"action": "migrate"}` → `alembic upgrade head` і відповідь `{"migrated": true, "revision": "<head>"}`. Будь-яке інше значення `action` → виняток (Lambda повертає `FunctionError`). Подія без `action` → `Mangum(app, lifespan="off")`. |
-| `app/seed.py` | `python -m app.seed --tutor-sub <sub>`: створює репетитора з цим `sub` (якщо нема) і демо-учнів, заняття та оплати. Відмовляється працювати, якщо в репетитора вже є учні. Тільки для локальної бази. |
+| `app/seed.py` | `python -m app.seed [--tutor-sub <sub>]`, default `local-dev`: створює репетитора з цим `sub` (якщо нема), 3 учнів, заняття на поточний тиждень, кілька оплат і щонайменше одного боржника. Повторний запуск видаляє дані **лише цього** репетитора і створює їх заново. Тільки для локальної бази. |
 | `app/auth/` | Перевірка Cognito access token. Не імпортує `app.db`. |
 | `app/auth/jwks.py` | Джерело ключів: якщо задано `COGNITO_JWKS` — парсить його один раз при старті (невалідний JSON → застосунок не стартує); інакше завантажує `{COGNITO_AUTHORITY}/.well-known/jwks.json` і кешує в процесі. |
-| `app/auth/dependencies.py` | `require_claims` (токен → `Claims(sub, ...)` або 401) і `current_tutor` (claims + сесія → рядок `tutors`, створює його при першому запиті). Усі роутери, крім `health`, залежать від `current_tutor`. |
+| `app/auth/dependencies.py` | `require_claims` (токен → `Claims(sub, ...)` або 401) і `get_current_tutor` (claims + сесія → рядок `tutors`, створює його при першому запиті). Усі роутери, крім `health`, залежать від `get_current_tutor`; тести підміняють її через `app.dependency_overrides`, щоб працювати від імені двох різних репетиторів. |
 | `app/api/` | Тонкі роутери: розбір запиту, виклик сервісу, серіалізація. Без SQL і без бізнес-правил. Один файл на ресурс. |
 | `app/models/` | ORM-моделі SQLAlchemy 2.x (`Mapped[...]`), один файл на таблицю. |
 | `app/schemas/` | Pydantic v2: тіла запитів і відповідей. Усі моделі запитів мають `extra="forbid"`. `common.py` — спільні типи: `Money` (int, копійки), `AwareDatetime`, `ErrorResponse`. |
@@ -501,7 +501,7 @@ Node 20.15.1. React 18.3.1, react-dom 18.3.1, Vite 5.4.0, @vitejs/plugin-react 4
 | Сервіс | Образ / build | Порт | Залежить від | Готовність (healthcheck) |
 | --- | --- | --- | --- | --- |
 | `postgres` | `postgres:16`; `POSTGRES_USER=tutor`, `POSTGRES_PASSWORD=tutor`, `POSTGRES_DB=tutor_cabinet`; том `pgdata:/var/lib/postgresql/data` | `5432` лише всередині мережі compose (на хост не публікується) | — | `pg_isready -U tutor -d tutor_cabinet`; `interval: 5s`, `timeout: 3s`, `retries: 12` |
-| `backend` | `build: ./backend` (`Dockerfile`, `python:3.12-slim`); змінні з таблиці «Змінні середовища backend» | `8000:8000` | `postgres` з `condition: service_healthy` | `python -c` з `urllib.request.urlopen("http://127.0.0.1:8000/api/health")`; `interval: 5s`, `timeout: 3s`, `retries: 12`, `start_period: 10s`. Стає healthy лише після `alembic upgrade head` і старту Uvicorn. |
+| `backend` | `build: ./backend` (`Dockerfile`, `python:3.12-slim`); змінні з таблиці «Змінні середовища backend»; `COGNITO_AUTHORITY`/`COGNITO_CLIENT_ID` беруться з оточення shell або `.env`, а до створення пулу мають заглушки (тоді всі захищені ендпоінти відповідають `401`) | `8000:8000` | `postgres` з `condition: service_healthy` | `python -c` з `urllib.request.urlopen("http://127.0.0.1:8000/api/health")`; `interval: 5s`, `timeout: 3s`, `retries: 12`, `start_period: 10s`. Стає healthy лише після `alembic upgrade head` і старту Uvicorn. |
 
 Backend з'єднується з базою за хостом `postgres`. Тестова база `tutor_cabinet_test` живе в тому самому контейнері; її створює `tests/conftest.py`.
 
@@ -537,7 +537,18 @@ Backend з'єднується з базою за хостом `postgres`. Тес
 
 ## Makefile
 
-Навіщо: єдиний рецепт деплою й локальних перевірок. CI викликає ці ж цілі й не дублює їхні команди. `terraform apply` тут немає.
+Навіщо: єдиний рецепт деплою й локальних перевірок. `terraform apply` тут немає.
+
+**Зараз реалізовано** лише локальні цілі; усі вони виконуються в образі backend (`docker compose run --rm --build backend ...`), тож локально потрібен тільки Docker:
+
+| Ціль | Що робить |
+| --- | --- |
+| `lint` | `ruff check .` і `ruff format --check .` |
+| `test` | `pytest` (compose підніме й дочекається `postgres`) |
+| `seed` | `python -m app.seed --tutor-sub "$(TUTOR_SUB)"`, `TUTOR_SUB` default `local-dev` |
+| `migrate-local` | `alembic upgrade head` на локальній базі (backend і так мігрує при старті; ціль — для нової ревізії, поки він працює) |
+
+Цілі деплою нижче з'являться разом з `infra/`; тоді CI викликатиме ці ж цілі й не дублюватиме їхніх команд.
 
 Змінні деплою за замовчуванням читаються з `terraform -chdir=infra output -raw <name>` (локально, після `terraform login`); у CI вони задаються явно з repository variables GitHub. AWS-доступ дає викликач (локальний профіль або OIDC-роль у CI) — у Makefile ключів немає.
 
@@ -547,13 +558,15 @@ Backend з'єднується з базою за хостом `postgres`. Тес
 | `migrate` | `LAMBDA_FUNCTION_NAME`, `AWS_REGION` | `aws lambda invoke` з payload `{"action": "migrate"}`; падає, якщо у відповіді є `FunctionError` або немає `"migrated": true`. |
 | `deploy-frontend` | `FRONTEND_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `API_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN` | `npm ci` і `npm run build` з `VITE_*`; `aws s3 sync frontend/dist/` з `--delete` (хешовані assets — `max-age=31536000, immutable`, `index.html` — `no-cache`); інвалідація CloudFront `/*`. |
 | `infra-plan` | `terraform login` у HCP | `terraform -chdir=infra fmt -check`, `init`, `validate`, `plan` (план виконується віддалено в HCP Terraform). |
-| `seed` | `TUTOR_SUB` (свій Cognito `sub`) | `docker compose exec backend python -m app.seed --tutor-sub "$(TUTOR_SUB)"`. Тільки локальна база. |
-| `lint` | — | Backend у контейнері: `ruff check .` і `ruff format --check .`. Frontend (коли з'явиться): `npm ci`, `npm run lint`, `npm run format:check`. |
-| `test` | — | `docker compose run --rm backend pytest` (compose сам підніме й дочекається `postgres`). |
+| `lint` (розширення) | — | Коли з'явиться frontend — додатково `npm ci`, `npm run lint`, `npm run format:check`. |
 
 Порядок деплою: `deploy-backend` → `migrate` → `deploy-frontend`. Міграцію запускає вже новий образ, бо ревізії Alembic лежать у ньому. Тому кожна міграція має бути сумісною з попередньою версією коду (спершу додаємо, прибираємо — в наступному релізі).
 
 ## CI і деплой (`.github/workflows/`)
+
+**Зараз є** `backend.yml`: на кожен `push` у будь-яку гілку — `actions/setup-python@v5` (3.12), `pip install ".[dev]"`, `ruff check .`, `ruff format --check .`, `pytest` у `backend/` з service container `postgres:16` і `TEST_DATABASE_URL`. AWS-доступу не має.
+
+Цільовий стан після появи frontend/ та infra/ (`backend.yml` тоді поглинається `ci.yml`):
 
 | Файл | Тригери | Що робить |
 | --- | --- | --- |

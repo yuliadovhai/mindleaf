@@ -1,0 +1,11 @@
+FROM public.ecr.aws/lambda/python:3.12
+
+COPY pyproject.toml ./
+# app/ is not copied yet, so this installs only the dependencies (layer cache).
+RUN pip install --no-cache-dir .
+
+COPY app ./app
+COPY alembic.ini ./
+COPY migrations ./migrations
+
+CMD ["app.lambda_handler.handler"]
