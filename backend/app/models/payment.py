@@ -37,7 +37,7 @@ class Payment(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tutor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tutors.id"))
+    tutor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     student_id: Mapped[uuid.UUID] = mapped_column()
     amount: Mapped[int] = mapped_column(Integer)
     paid_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.period import Period, period
 from app.auth.dependencies import get_current_tutor
 from app.db import get_session
-from app.models import Tutor
+from app.models import User
 from app.schemas.payment import PaymentCreate, PaymentOut, PaymentUpdate
 from app.services import payments
 
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 def list_payments(
     student_id: uuid.UUID | None = Query(None),
     when: Period = Depends(period),
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> list[PaymentOut]:
     """Filters by paid_at in [from, to); newest first."""
@@ -34,7 +34,7 @@ def list_payments(
 @router.post("", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
 def create_payment(
     body: PaymentCreate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> PaymentOut:
     return PaymentOut.of(payments.create_payment(session, tutor.id, body))
@@ -43,7 +43,7 @@ def create_payment(
 @router.get("/{payment_id}", response_model=PaymentOut)
 def get_payment(
     payment_id: uuid.UUID,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> PaymentOut:
     return PaymentOut.of(payments.get_payment(session, tutor.id, payment_id))
@@ -53,7 +53,7 @@ def get_payment(
 def update_payment(
     payment_id: uuid.UUID,
     body: PaymentUpdate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> PaymentOut:
     return PaymentOut.of(payments.update_payment(session, tutor.id, payment_id, body))
@@ -62,7 +62,7 @@ def update_payment(
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_payment(
     payment_id: uuid.UUID,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> Response:
     payments.delete_payment(session, tutor.id, payment_id)

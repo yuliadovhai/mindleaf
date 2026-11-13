@@ -5,17 +5,17 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Lesson, Payment, Student, Tutor
+from app.models import Lesson, Payment, Student, User
 
 
-def _tutor(db, sub: str) -> Tutor:
-    tutor = Tutor(cognito_sub=sub)
+def _tutor(db, sub: str) -> User:
+    tutor = User(cognito_sub=sub)
     db.add(tutor)
     db.flush()
     return tutor
 
 
-def _student(db, tutor: Tutor) -> Student:
+def _student(db, tutor: User) -> Student:
     student = Student(tutor_id=tutor.id, full_name="Олена", default_price=50000)
     db.add(student)
     db.flush()
@@ -35,7 +35,7 @@ def test_lesson_cannot_point_at_another_tutors_student(db):
             price=50000,
         )
     )
-    with pytest.raises(IntegrityError, match="fk_lessons_student_id_tutor_id"):
+    with pytest.raises(IntegrityError, match="fk_lessons_student_id_tutor_id_students"):
         db.flush()
 
 
@@ -52,14 +52,16 @@ def test_payment_cannot_point_at_another_tutors_student(db):
             method="cash",
         )
     )
-    with pytest.raises(IntegrityError, match="fk_payments_student_id_tutor_id"):
+    with pytest.raises(
+        IntegrityError, match="fk_payments_student_id_tutor_id_students"
+    ):
         db.flush()
 
 
 def test_cognito_sub_is_unique(db):
     _tutor(db, "same")
-    db.add(Tutor(cognito_sub="same"))
-    with pytest.raises(IntegrityError, match="uq_tutors_cognito_sub"):
+    db.add(User(cognito_sub="same"))
+    with pytest.raises(IntegrityError, match="uq_users_cognito_sub"):
         db.flush()
 
 
@@ -83,5 +85,5 @@ def test_lesson_check_constraints(db, field, value, constraint):
     )
     setattr(lesson, field, value)
     db.add(lesson)
-    with pytest.raises(IntegrityError, match=constraint):
+    with pytest.raises(IntegrityError, match=f'"{constraint}"'):
         db.flush()

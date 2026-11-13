@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from app.auth.dependencies import get_verifier
 from app.auth.jwks import AuthError, StaticKeys, TokenVerifier
 from app.main import app
-from app.models import Tutor
+from app.models import User
 from tests.tokens import AUTHORITY, CLIENT_ID, make_token, verifier
 
 
@@ -74,17 +74,83 @@ def test_invalid_token_is_401(auth_client):
     assert response.status_code == 401
 
 
-def test_me_creates_tutor_once(auth_client, db):
-    token = make_token("new-tutor", email="t@example.com")
+def test_me_creates_user_once_without_role(auth_client, db):
+    token = make_token("new-user", email="t@example.com")
 
     first = auth_client.get("/api/me", headers=bearer(token))
     second = auth_client.get("/api/me", headers=bearer(token))
 
     assert first.status_code == 200
     assert first.json()["email"] == "t@example.com"
+    assert first.json()["role"] is None
     assert first.json()["id"] == second.json()["id"]
     assert first.json()["created_at"].endswith(("+02:00", "+03:00"))
     count = db.scalar(
-        select(func.count()).select_from(Tutor).where(Tutor.cognito_sub == "new-tutor")
+        select(func.count()).select_from(User).where(User.cognito_sub == "new-user")
     )
     assert count == 1
+
+
+def test_user_without_role_cannot_use_tutor_or_portal_endpoints(auth_client):
+    headers = bearer(make_token("no-role"))
+
+    assert auth_client.get("/api/students", headers=headers).status_code == 403
+    assert auth_client.get("/api/dashboard", headers=headers).status_code == 403
+    assert auth_client.get("/api/students", headers=headers).json() == {
+        "detail": "forbidden"
+    }
+
+
+def test_choosing_tutor_role_opens_tutor_endpoints(auth_client):
+    headers = bearer(make_token("future-tutor"))
+
+    response = auth_client.post("/api/me/role", json={"role": "tutor"}, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "tutor"
+    assert auth_client.get("/api/students", headers=headers).status_code == 200
+    # Choosing again is harmless.
+    again = auth_client.post("/api/me/role", json={"role": "tutor"}, headers=headers)
+    assert again.status_code == 200
+
+
+@pytest.mark.parametrize("role", ["student", "parent", "admin"])
+def test_only_tutor_role_can_be_self_assigned(auth_client, role):
+    response = auth_client.post(
+        "/api/me/role", json={"role": role}, headers=bearer(make_token("x"))
+    )
+
+    assert response.status_code == 422
+
+
+def test_role_cannot_change_once_set(auth_client, db):
+    db.add(User(cognito_sub="a-parent", role="parent"))
+    db.flush()
+
+    response = auth_client.post(
+        "/api/me/role", json={"role": "tutor"}, headers=bearer(make_token("a-parent"))
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "role_already_set"}
+
+
+def test_patch_me(auth_client, db):
+    db.add(User(cognito_sub="t1", role="tutor"))
+    db.add(User(cognito_sub="p1", role="parent"))
+    db.flush()
+
+    tutor = auth_client.patch(
+        "/api/me",
+        json={"name": "Оксана", "cancel_notice_hours": 12},
+        headers=bearer(make_token("t1")),
+    )
+    assert tutor.status_code == 200
+    assert tutor.json()["name"] == "Оксана"
+    assert tutor.json()["cancel_notice_hours"] == 12
+
+    parent = auth_client.patch(
+        "/api/me", json={"cancel_notice_hours": 1}, headers=bearer(make_token("p1"))
+    )
+    assert parent.status_code == 409
+    assert parent.json() == {"detail": "tutor_only_setting"}

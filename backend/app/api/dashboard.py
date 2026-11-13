@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_tutor
 from app.db import get_session
-from app.models import Tutor
+from app.models import User
 from app.schemas.dashboard import DashboardOut, DebtorOut
 from app.schemas.lesson import LessonOut
 from app.services import dashboard
@@ -13,7 +13,7 @@ router = APIRouter(tags=["dashboard"])
 
 @router.get("/dashboard", response_model=DashboardOut)
 def read_dashboard(
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> DashboardOut:
     """Today and the next 7 days, this month's income and the debts (Kyiv time)."""

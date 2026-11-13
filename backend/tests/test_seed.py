@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Lesson, Payment, Student, Tutor
+from app.models import Lesson, Payment, Student, User
 from app.seed import seed
 from app.services import clock, dashboard
 from app.settings import TIMEZONE
@@ -29,7 +29,7 @@ def test_seed_creates_demo_data_with_a_debtor(db, monkeypatch, now):
 
     assert seed(db) == {"students": 3, "lessons": 12, "payments": 3}
 
-    tutor = db.scalars(select(Tutor).where(Tutor.cognito_sub == "local-dev")).one()
+    tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
     this_week = db.scalars(
         select(Lesson).where(
             Lesson.tutor_id == tutor.id,
@@ -50,7 +50,7 @@ def test_seed_is_rerunnable_and_touches_only_its_tutor(db, as_tutor, tutor_b):
     seed(db)
     seed(db)
 
-    tutor = db.scalars(select(Tutor).where(Tutor.cognito_sub == "local-dev")).one()
+    tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
     assert _count(db, Student, tutor.id) == 3
     assert _count(db, Lesson, tutor.id) == 12
     assert _count(db, Payment, tutor.id) == 3
@@ -60,5 +60,5 @@ def test_seed_is_rerunnable_and_touches_only_its_tutor(db, as_tutor, tutor_b):
 def test_seed_custom_sub(db):
     seed(db, "my-real-sub")
 
-    tutor = db.scalars(select(Tutor).where(Tutor.cognito_sub == "my-real-sub")).one()
+    tutor = db.scalars(select(User).where(User.cognito_sub == "my-real-sub")).one()
     assert _count(db, Student, tutor.id) == 3

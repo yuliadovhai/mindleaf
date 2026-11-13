@@ -30,7 +30,7 @@ class Student(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tutor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tutors.id"))
+    tutor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     full_name: Mapped[str] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(Text)
     telegram: Mapped[str | None] = mapped_column(Text)

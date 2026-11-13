@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.auth.dependencies import get_current_tutor  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Tutor  # noqa: E402
+from app.models import User  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -95,8 +95,8 @@ def db_client(db: Session, client: TestClient) -> TestClient:
     return client
 
 
-def _make_tutor(db: Session, sub: str) -> Tutor:
-    tutor = Tutor(cognito_sub=sub, email=f"{sub}@example.com")
+def _make_tutor(db: Session, sub: str) -> User:
+    tutor = User(cognito_sub=sub, email=f"{sub}@example.com", role="tutor")
     db.add(tutor)
     db.flush()
     return tutor

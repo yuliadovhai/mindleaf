@@ -3,6 +3,8 @@
 import json
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from app import lambda_handler
 
@@ -49,7 +51,8 @@ def test_migrate_runs_alembic_upgrade_head(monkeypatch):
 
     result = lambda_handler.handler({"action": "migrate"}, None)
 
-    assert result == {"migrated": True, "revision": "0001"}
+    head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+    assert result == {"migrated": True, "revision": head}
     assert len(calls) == 1
     script_location, target = calls[0]
     assert target == "head"

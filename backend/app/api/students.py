@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_tutor
 from app.db import get_session
-from app.models import Tutor
+from app.models import User
 from app.schemas.student import StudentCreate, StudentOut, StudentUpdate
 from app.services import students
 from app.services.students import StudentWithBalance
@@ -20,7 +20,7 @@ def _out(item: StudentWithBalance) -> StudentOut:
 @router.get("", response_model=list[StudentOut])
 def list_students(
     archived: bool = Query(False, description="true — тільки архівні"),
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> list[StudentOut]:
     return [_out(s) for s in students.list_students(session, tutor.id, archived)]
@@ -29,7 +29,7 @@ def list_students(
 @router.post("", response_model=StudentOut, status_code=status.HTTP_201_CREATED)
 def create_student(
     body: StudentCreate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> StudentOut:
     return _out(students.create_student(session, tutor.id, body))
@@ -38,7 +38,7 @@ def create_student(
 @router.get("/{student_id}", response_model=StudentOut)
 def get_student(
     student_id: uuid.UUID,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> StudentOut:
     return _out(students.get_student(session, tutor.id, student_id))
@@ -48,7 +48,7 @@ def get_student(
 def update_student(
     student_id: uuid.UUID,
     body: StudentUpdate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> StudentOut:
     return _out(students.update_student(session, tutor.id, student_id, body))
@@ -57,7 +57,7 @@ def update_student(
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_student(
     student_id: uuid.UUID,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> Response:
     """Archives the student (archived = true); nothing is deleted."""

@@ -3,6 +3,14 @@
 from app.models.lesson import Lesson, LessonStatus
 from app.models.payment import Payment, PaymentMethod
 from app.models.student import Student
-from app.models.tutor import Tutor
+from app.models.user import Role, User
 
-__all__ = ["Lesson", "LessonStatus", "Payment", "PaymentMethod", "Student", "Tutor"]
+__all__ = [
+    "Lesson",
+    "LessonStatus",
+    "Payment",
+    "PaymentMethod",
+    "Role",
+    "Student",
+    "User",
+]

@@ -4,7 +4,13 @@ from fastapi.responses import JSONResponse
 
 from app.api import dashboard, health, lessons, me, payments, students
 from app.schemas.common import ErrorResponse
-from app.services.errors import NotFound, StudentArchived, StudentNotFound
+from app.services.errors import (
+    Conflict,
+    Forbidden,
+    NotFound,
+    StudentArchived,
+    StudentNotFound,
+)
 from app.settings import settings
 
 app = FastAPI(
@@ -39,14 +45,29 @@ def _student_archived(request: Request, exc: StudentArchived) -> JSONResponse:
     return JSONResponse({"detail": "student_archived"}, status.HTTP_409_CONFLICT)
 
 
+@app.exception_handler(Forbidden)
+def _forbidden(request: Request, exc: Forbidden) -> JSONResponse:
+    return JSONResponse({"detail": "forbidden"}, status.HTTP_403_FORBIDDEN)
+
+
+@app.exception_handler(Conflict)
+def _conflict(request: Request, exc: Conflict) -> JSONResponse:
+    return JSONResponse({"detail": exc.code}, status.HTTP_409_CONFLICT)
+
+
 UNAUTHORIZED = {401: {"model": ErrorResponse, "description": "Немає валідного токена"}}
+FORBIDDEN = {403: {"model": ErrorResponse, "description": "Роль не має доступу"}}
 NOT_FOUND = {404: {"model": ErrorResponse, "description": "Немає запису або він чужий"}}
 
 api = APIRouter(prefix="/api")
 api.include_router(health.router)
 api.include_router(me.router, responses=UNAUTHORIZED)
-api.include_router(students.router, responses={**UNAUTHORIZED, **NOT_FOUND})
-api.include_router(lessons.router, responses={**UNAUTHORIZED, **NOT_FOUND})
-api.include_router(payments.router, responses={**UNAUTHORIZED, **NOT_FOUND})
-api.include_router(dashboard.router, responses=UNAUTHORIZED)
+api.include_router(
+    students.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
+)
+api.include_router(lessons.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
+api.include_router(
+    payments.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
+)
+api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

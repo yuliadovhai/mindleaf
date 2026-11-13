@@ -15,8 +15,15 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.models import Lesson, LessonStatus, Payment, PaymentMethod, Student
-from app.services import clock, tutors
+from app.models import (
+    Lesson,
+    LessonStatus,
+    Payment,
+    PaymentMethod,
+    Role,
+    Student,
+)
+from app.services import clock, users
 from app.settings import TIMEZONE
 
 DEFAULT_SUB = "local-dev"
@@ -81,7 +88,8 @@ def seed(session: Session, tutor_sub: str = DEFAULT_SUB) -> dict[str, int]:
     this_monday = now.date() - timedelta(days=now.weekday())
     last_monday = this_monday - timedelta(days=7)
 
-    tutor = tutors.get_or_create(session, tutor_sub, name="Демо-репетитор")
+    tutor = users.get_or_create(session, tutor_sub, name="Демо-репетитор")
+    tutor.role = Role.tutor
     for model in (Payment, Lesson, Student):
         session.execute(delete(model).where(model.tutor_id == tutor.id))
 

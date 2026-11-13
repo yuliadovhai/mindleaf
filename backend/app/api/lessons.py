@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.period import Period, period
 from app.auth.dependencies import get_current_tutor
 from app.db import get_session
-from app.models import LessonStatus, Tutor
+from app.models import LessonStatus, User
 from app.schemas.common import ErrorResponse
 from app.schemas.lesson import LessonCreate, LessonOut, LessonStatusUpdate, LessonUpdate
 from app.services import lessons
@@ -19,7 +19,7 @@ def list_lessons(
     when: Period = Depends(period),
     student_id: uuid.UUID | None = Query(None),
     lesson_status: LessonStatus | None = Query(None, alias="status"),
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> list[LessonOut]:
     """Filters by starts_at in [from, to); sorted by starts_at ascending."""
@@ -42,7 +42,7 @@ def list_lessons(
 )
 def create_lesson(
     body: LessonCreate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> LessonOut:
     """price defaults to the student's default_price."""
@@ -52,7 +52,7 @@ def create_lesson(
 @router.get("/{lesson_id}", response_model=LessonOut)
 def get_lesson(
     lesson_id: uuid.UUID,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> LessonOut:
     return LessonOut.of(lessons.get_lesson(session, tutor.id, lesson_id))
@@ -62,7 +62,7 @@ def get_lesson(
 def update_lesson(
     lesson_id: uuid.UUID,
     body: LessonUpdate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> LessonOut:
     return LessonOut.of(lessons.update_lesson(session, tutor.id, lesson_id, body))
@@ -72,7 +72,7 @@ def update_lesson(
 def set_lesson_status(
     lesson_id: uuid.UUID,
     body: LessonStatusUpdate,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> LessonOut:
     return LessonOut.of(lessons.set_status(session, tutor.id, lesson_id, body.status))
@@ -81,7 +81,7 @@ def set_lesson_status(
 @router.delete("/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lesson(
     lesson_id: uuid.UUID,
-    tutor: Tutor = Depends(get_current_tutor),
+    tutor: User = Depends(get_current_tutor),
     session: Session = Depends(get_session),
 ) -> Response:
     lessons.delete_lesson(session, tutor.id, lesson_id)
