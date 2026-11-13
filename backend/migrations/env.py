@@ -1,5 +1,7 @@
 """Alembic environment: the URL comes from DATABASE_URL, metadata from app.models."""
 
+from logging.config import fileConfig
+
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
@@ -8,6 +10,9 @@ from app.db import Base
 from app.settings import settings
 
 config = context.config
+if config.config_file_name is not None:
+    # Show "Running upgrade ..." without silencing the app's own loggers.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 target_metadata = Base.metadata
 
 

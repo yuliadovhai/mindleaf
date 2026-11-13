@@ -55,6 +55,7 @@ tutor-cabinet/
 │   │   │   └── dependencies.py
 │   │   ├── api/
 │   │   │   ├── __init__.py
+│   │   │   ├── period.py
 │   │   │   ├── health.py
 │   │   │   ├── me.py
 │   │   │   ├── students.py
@@ -83,9 +84,14 @@ tutor-cabinet/
 │   │       ├── payments.py
 │   │       ├── balances.py
 │   │       ├── dashboard.py
-│   │       └── clock.py
+│   │       ├── clock.py
+│   │       └── errors.py
 │   └── tests/
 │       ├── conftest.py
+│       ├── factories.py
+│       ├── tokens.py
+│       ├── test_schema.py
+│       ├── test_seed.py
 │       ├── test_health.py
 │       ├── test_auth.py
 │       ├── test_students.py
@@ -172,13 +178,14 @@ Ruff: `target-version = "py312"`, `line-length = 88`, `select = ["E", "F", "I", 
 | `app/auth/` | Перевірка Cognito access token. Не імпортує `app.db`. |
 | `app/auth/jwks.py` | Джерело ключів: якщо задано `COGNITO_JWKS` — парсить його один раз при старті (невалідний JSON → застосунок не стартує); інакше завантажує `{COGNITO_AUTHORITY}/.well-known/jwks.json` і кешує в процесі. |
 | `app/auth/dependencies.py` | `require_claims` (токен → `Claims(sub, ...)` або 401) і `get_current_tutor` (claims + сесія → рядок `tutors`, створює його при першому запиті). Усі роутери, крім `health`, залежать від `get_current_tutor`; тести підміняють її через `app.dependency_overrides`, щоб працювати від імені двох різних репетиторів. |
-| `app/api/` | Тонкі роутери: розбір запиту, виклик сервісу, серіалізація. Без SQL і без бізнес-правил. Один файл на ресурс. |
+| `app/api/` | Тонкі роутери: розбір запиту, виклик сервісу, серіалізація. Без SQL і без бізнес-правил. Один файл на ресурс; `period.py` — спільна пара query `from`/`to` (`from >= to` → 422). |
 | `app/models/` | ORM-моделі SQLAlchemy 2.x (`Mapped[...]`), один файл на таблицю. |
 | `app/schemas/` | Pydantic v2: тіла запитів і відповідей. Усі моделі запитів мають `extra="forbid"`. `common.py` — спільні типи: `Money` (int, копійки), `AwareDatetime`, `ErrorResponse`. |
 | `app/services/` | Бізнес-логіка. Кожна функція приймає `tutor_id` першим аргументом і фільтрує за ним — це єдине місце, де забезпечується ізоляція даних. |
 | `app/services/balances.py` | Єдина формула балансу (див. «Модель даних»), яку використовують і `students`, і `dashboard`. |
 | `app/services/clock.py` | «Зараз», «сьогодні» і «поточний місяць» у `Europe/Kyiv`; підмінюється в тестах. |
-| `tests/` | pytest проти справжнього PostgreSQL з `TEST_DATABASE_URL`. `conftest.py` створює тестову базу, якщо її нема, проганяє `alembic upgrade head` і загортає кожен тест у транзакцію з відкатом. Токени підписуються тестовим RSA-ключем, переданим через `COGNITO_JWKS`. |
+| `app/services/errors.py` | Доменні винятки `NotFound`, `StudentNotFound`, `StudentArchived`; `app/main.py` перетворює їх на `404`, `422`, `409`. |
+| `tests/` | pytest проти справжнього PostgreSQL з `TEST_DATABASE_URL`. `conftest.py` створює тестову базу, якщо її нема, проганяє `alembic upgrade head` і загортає кожен тест у транзакцію з відкатом. Токени підписуються тестовим RSA-ключем (`tokens.py`); API-тести підміняють `get_current_tutor` фікстурою `as_tutor(...)`, щоб діяти від імені двох репетиторів; `factories.py` створює записи через API. |
 
 ### Змінні середовища backend
 
