@@ -46,3 +46,54 @@ def test_free_lesson_does_not_change_balance():
 def test_kopecks_are_exact():
     # 333.33 UAH three times: integers, no float rounding.
     assert compute_balance([99999], [("done", 33333)] * 3) == 0
+
+
+def test_sql_balances_match_the_formula(db, tutor_a, tutor_b):
+    """balances() in SQL agrees with compute_balance() on random histories."""
+    import random
+    from datetime import UTC, datetime
+
+    from app.models import Lesson, Payment, Student
+    from app.services.balances import balances
+
+    rng = random.Random(20261113)
+    expected = {}
+    for tutor in (tutor_a, tutor_b):
+        for n in range(6):
+            student = Student(tutor_id=tutor.id, full_name=f"S{n}", default_price=0)
+            db.add(student)
+            db.flush()
+            lessons = [
+                (rng.choice(["planned", "done", "cancelled", "missed"]),
+                 rng.randrange(0, 100000))
+                for _ in range(rng.randrange(0, 8))
+            ]  # fmt: skip
+            payments = [rng.randrange(1, 100000) for _ in range(rng.randrange(0, 5))]
+            when = datetime(2026, 11, 13, tzinfo=UTC)
+            db.add_all(
+                Lesson(
+                    tutor_id=tutor.id,
+                    student_id=student.id,
+                    starts_at=when,
+                    duration_minutes=60,
+                    price=price,
+                    status=status,
+                )
+                for status, price in lessons
+            )
+            db.add_all(
+                Payment(
+                    tutor_id=tutor.id,
+                    student_id=student.id,
+                    amount=amount,
+                    paid_at=when,
+                    method="cash",
+                )
+                for amount in payments
+            )
+            expected[student.id] = (tutor.id, compute_balance(payments, lessons))
+    db.flush()
+
+    for tutor in (tutor_a, tutor_b):
+        mine = {sid: bal for sid, (tid, bal) in expected.items() if tid == tutor.id}
+        assert balances(db, tutor.id) == mine
