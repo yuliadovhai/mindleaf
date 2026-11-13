@@ -76,6 +76,8 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
     } catch (err) {
       if (err instanceof ApiError) {
         setError(typeof err.detail === "string" ? err.detail : "Помилка збереження");
+      } else if (err instanceof Error) {
+        setError(err.message);
       } else {
         setError("Помилка збереження");
       }

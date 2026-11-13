@@ -19,7 +19,12 @@ export function Layout({ children }: LayoutProps) {
   const { path, navigate } = useRouter();
 
   const handleLogout = () => {
-    void auth.signoutRedirect();
+    void auth.removeUser().then(() => {
+      const domain = import.meta.env.VITE_COGNITO_DOMAIN;
+      const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
+      const logoutUri = encodeURIComponent(window.location.origin + "/");
+      window.location.href = `${domain}/logout?client_id=${clientId}&logout_uri=${logoutUri}`;
+    });
   };
 
   return (

@@ -10,6 +10,13 @@ export class ApiError extends Error {
   }
 }
 
+let _signinRedirect: (() => Promise<void>) | null = null;
+
+/** Реєструє функцію повторного входу; викликається з App при ініціалізації auth. */
+export function setSigninRedirect(fn: () => Promise<void>): void {
+  _signinRedirect = fn;
+}
+
 export async function apiFetch<T>(token: string, path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
@@ -30,6 +37,9 @@ export async function apiFetch<T>(token: string, path: string, init?: RequestIni
       detail = body.detail ?? detail;
     } catch {
       // ignore parse error
+    }
+    if (res.status === 401 && _signinRedirect) {
+      void _signinRedirect();
     }
     throw new ApiError(res.status, detail);
   }

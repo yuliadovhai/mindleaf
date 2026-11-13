@@ -64,9 +64,14 @@ export function isoToLocalInput(iso: string): string {
 }
 
 function getKyivOffsetMinutes(d: Date): number {
-  const utcStr = d.toLocaleString("sv-SE", { timeZone: "UTC" });
-  const kyivStr = d.toLocaleString("sv-SE", { timeZone: TZ });
-  const utc = new Date(utcStr);
-  const kyiv = new Date(kyivStr);
-  return (kyiv.getTime() - utc.getTime()) / 60000;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    timeZoneName: "longOffset",
+  }).formatToParts(d);
+  const tzPart = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  // "GMT+03:00", "GMT+02:00", "GMT+0" (UTC)
+  const match = tzPart.match(/GMT([+-])(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  const sign = match[1] === "+" ? 1 : -1;
+  return sign * (parseInt(match[2], 10) * 60 + parseInt(match[3], 10));
 }

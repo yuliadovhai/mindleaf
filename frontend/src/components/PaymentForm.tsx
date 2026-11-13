@@ -91,6 +91,8 @@ export function PaymentForm({
         const detail = err.detail;
         if (detail === "student_not_found") setError("Учня не знайдено");
         else setError(typeof detail === "string" ? detail : "Помилка збереження");
+      } else if (err instanceof Error) {
+        setError(err.message);
       } else {
         setError("Помилка збереження");
       }

@@ -102,6 +102,8 @@ export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }
         if (detail === "student_not_found") setError("Учня не знайдено");
         else if (detail === "student_archived") setError("Учень архівований");
         else setError(typeof detail === "string" ? detail : "Помилка збереження");
+      } else if (err instanceof Error) {
+        setError(err.message);
       } else {
         setError("Помилка збереження");
       }

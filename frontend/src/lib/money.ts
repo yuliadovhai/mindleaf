@@ -11,11 +11,16 @@ export function formatMoney(kopecks: number): string {
 }
 
 /** Гривні (рядок від користувача) → копійки без float-помилок.
- *  "150" → 15000, "150.50" → 15050, "150,50" → 15050. */
+ *  "150" → 15000, "150.50" → 15050, "150,50" → 15050.
+ *  Прибирає звичайні та нерозривні пробіли (тисячні роздільники uk-UA).
+ *  Кидає Error при невалідному введенні — форма перехопить у catch. */
 export function parseMoney(input: string): number {
-  const normalized = input.trim().replace(",", ".");
+  // \u00a0 = no-break space, \u202f = narrow no-break space (uk-UA thousands sep)
+  const normalized = input.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
   const float = parseFloat(normalized);
-  if (isNaN(float)) return 0;
+  if (isNaN(float) || !isFinite(float)) {
+    throw new Error("Невалідна сума");
+  }
   return Math.round(float * 100);
 }
 

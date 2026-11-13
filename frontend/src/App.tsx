@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useAuth } from "react-oidc-context";
 import { useRouter } from "./lib/router";
+import { setSigninRedirect } from "./api/client";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { StudentsPage } from "./pages/StudentsPage";
@@ -10,6 +12,10 @@ import { PaymentsPage } from "./pages/PaymentsPage";
 export function App() {
   const auth = useAuth();
   const { path } = useRouter();
+
+  useEffect(() => {
+    setSigninRedirect(() => auth.signinRedirect());
+  }, [auth]);
 
   if (auth.isLoading || (!auth.isAuthenticated && !auth.error)) {
     if (!auth.isLoading) {
