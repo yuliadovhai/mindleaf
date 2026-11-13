@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "react-oidc-context";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -91,6 +98,9 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{initial ? "Редагувати учня" : "Новий учень"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {initial ? "Редагуйте дані учня" : "Заповніть дані нового учня"}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           <div className="space-y-1">

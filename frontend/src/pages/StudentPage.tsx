@@ -34,6 +34,8 @@ import {
   Phone,
   MessageSquare,
   User,
+  CalendarDays,
+  CreditCard,
 } from "lucide-react";
 
 const METHOD_LABEL = { cash: "Готівка", card: "Картка", transfer: "Переказ" } as const;
@@ -43,6 +45,28 @@ interface StudentPageProps {
 }
 
 type Tab = "lessons" | "payments";
+
+function EmptyLessons() {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+      <div className="w-12 h-12 rounded-2xl bg-[#E8F1FF] flex items-center justify-center">
+        <CalendarDays className="h-6 w-6 text-blue-600" />
+      </div>
+      <p className="text-sm">Занять поки немає</p>
+    </div>
+  );
+}
+
+function EmptyPayments() {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+      <div className="w-12 h-12 rounded-2xl bg-[#E6F8EF] flex items-center justify-center">
+        <CreditCard className="h-6 w-6 text-emerald-600" />
+      </div>
+      <p className="text-sm">Оплат поки немає</p>
+    </div>
+  );
+}
 
 export function StudentPage({ id }: StudentPageProps) {
   const auth = useAuth();
@@ -129,22 +153,22 @@ export function StudentPage({ id }: StudentPageProps) {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate("/students")}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{student.full_name}</h1>
+                <h1 className="text-2xl font-bold text-foreground">{student.full_name}</h1>
                 {student.archived && <Badge variant="muted">архів</Badge>}
               </div>
               {student.subject && (
-                <p className="text-muted-foreground text-sm">{student.subject}</p>
+                <p className="text-muted-foreground text-sm mt-0.5">{student.subject}</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {student.archived && (
               <Button variant="outline" size="sm" onClick={() => void handleUnarchive()}>
                 Розархівувати
@@ -164,27 +188,32 @@ export function StudentPage({ id }: StudentPageProps) {
 
         {/* Info + Balance */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="sm:col-span-2 rounded-lg border bg-card p-4 space-y-2 text-sm">
+          <div className="sm:col-span-2 rounded-2xl border border-border bg-card p-5 space-y-2.5 text-sm shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
             {student.phone && (
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2 text-foreground">
+                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{student.phone}</span>
               </div>
             )}
             {student.telegram && (
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2 text-foreground">
+                <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{student.telegram}</span>
               </div>
             )}
             {student.parent_name && (
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2 text-foreground">
+                <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>
                   {student.parent_name}
-                  {student.parent_phone && ` · ${student.parent_phone}`}
+                  {student.parent_phone && (
+                    <span className="text-muted-foreground"> · {student.parent_phone}</span>
+                  )}
                 </span>
               </div>
+            )}
+            {!student.phone && !student.telegram && !student.parent_name && !student.notes && (
+              <p className="text-muted-foreground">Контактні дані не вказані</p>
             )}
             {student.notes && (
               <p className="text-muted-foreground whitespace-pre-line">{student.notes}</p>
@@ -192,22 +221,24 @@ export function StudentPage({ id }: StudentPageProps) {
           </div>
 
           <div
-            className={`rounded-lg border p-4 flex flex-col items-center justify-center ${
+            className={`rounded-2xl border p-5 flex flex-col items-center justify-center shadow-[0_4px_20px_rgba(109,93,246,0.06)] ${
               student.balance < 0
-                ? "bg-destructive/5 border-destructive/30"
+                ? "bg-red-50 border-red-200"
                 : student.balance > 0
-                  ? "bg-green-50 border-green-200"
-                  : "bg-card"
+                  ? "bg-[#E6F8EF] border-emerald-200"
+                  : "bg-card border-border"
             }`}
           >
-            <p className="text-sm text-muted-foreground mb-1">Баланс</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+              Баланс
+            </p>
             <p
-              className={`text-3xl font-bold ${
+              className={`text-3xl font-extrabold ${
                 student.balance < 0
                   ? "text-destructive"
                   : student.balance > 0
-                    ? "text-green-600"
-                    : ""
+                    ? "text-emerald-600"
+                    : "text-foreground"
               }`}
             >
               {formatMoney(student.balance)}
@@ -219,22 +250,22 @@ export function StudentPage({ id }: StudentPageProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b">
+        <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
           <button
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
               tab === "lessons"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-white text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => setTab("lessons")}
           >
             Заняття ({lessons.length})
           </button>
           <button
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
               tab === "payments"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-white text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => setTab("payments")}
           >
@@ -260,7 +291,9 @@ export function StudentPage({ id }: StudentPageProps) {
               </Button>
             </div>
             {lessons.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Занять поки немає</p>
+              <div className="rounded-2xl border border-border bg-card shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
+                <EmptyLessons />
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -277,7 +310,9 @@ export function StudentPage({ id }: StudentPageProps) {
                   {lessons.map((l) => (
                     <TableRow key={l.id}>
                       <TableCell className="text-sm">{formatDateTime(l.starts_at)}</TableCell>
-                      <TableCell className="text-sm">{l.duration_minutes} хв</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {l.duration_minutes} хв
+                      </TableCell>
                       <TableCell className="text-right text-sm">{formatMoney(l.price)}</TableCell>
                       <TableCell>
                         <LessonStatusBadge status={l.status} />
@@ -286,7 +321,7 @@ export function StudentPage({ id }: StudentPageProps) {
                         {l.topic ?? "—"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-0.5">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -343,7 +378,9 @@ export function StudentPage({ id }: StudentPageProps) {
               </Button>
             </div>
             {payments.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Оплат поки немає</p>
+              <div className="rounded-2xl border border-border bg-card shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
+                <EmptyPayments />
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -359,7 +396,7 @@ export function StudentPage({ id }: StudentPageProps) {
                   {payments.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="text-sm">{formatDateTime(p.paid_at)}</TableCell>
-                      <TableCell className="text-right font-medium text-green-700">
+                      <TableCell className="text-right font-semibold text-emerald-600">
                         {formatMoney(p.amount)}
                       </TableCell>
                       <TableCell className="text-sm">{METHOD_LABEL[p.method]}</TableCell>
@@ -367,7 +404,7 @@ export function StudentPage({ id }: StudentPageProps) {
                         {p.comment ?? "—"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-0.5">
                           <Button
                             variant="ghost"
                             size="icon"

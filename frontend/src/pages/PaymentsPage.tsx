@@ -28,9 +28,20 @@ import {
 import { formatMoney } from "../lib/money";
 import { formatDateTime, localInputToIso, todayKyiv, addDays } from "../lib/datetime";
 import { useRouter } from "../lib/router";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, CreditCard } from "lucide-react";
 
 const METHOD_LABEL = { cash: "Готівка", card: "Картка", transfer: "Переказ" } as const;
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+      <div className="w-12 h-12 rounded-2xl bg-[#E6F8EF] flex items-center justify-center">
+        <CreditCard className="h-6 w-6 text-emerald-600" />
+      </div>
+      <p className="text-sm">Оплат не знайдено</p>
+    </div>
+  );
+}
 
 export function PaymentsPage() {
   const auth = useAuth();
@@ -88,9 +99,9 @@ export function PaymentsPage() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Оплати</h1>
+          <h1 className="text-2xl font-bold text-foreground">Оплати</h1>
           <Button
             className="gap-1.5"
             onClick={() => {
@@ -106,7 +117,12 @@ export function PaymentsPage() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
           <div className="space-y-1">
-            <Label htmlFor="pp-from">З дати</Label>
+            <Label
+              htmlFor="pp-from"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              З дати
+            </Label>
             <Input
               id="pp-from"
               type="date"
@@ -116,7 +132,12 @@ export function PaymentsPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="pp-to">По дату</Label>
+            <Label
+              htmlFor="pp-to"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              По дату
+            </Label>
             <Input
               id="pp-to"
               type="date"
@@ -126,7 +147,12 @@ export function PaymentsPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="pp-student">Учень</Label>
+            <Label
+              htmlFor="pp-student"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              Учень
+            </Label>
             <Select value={studentId} onValueChange={setStudentId}>
               <SelectTrigger id="pp-student" className="w-48">
                 <SelectValue placeholder="Всі учні" />
@@ -151,11 +177,13 @@ export function PaymentsPage() {
         ) : error ? (
           <ErrorMessage message={error} />
         ) : payments.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">Оплат не знайдено</p>
+          <div className="rounded-2xl border border-border bg-card shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
+            <EmptyState />
+          </div>
         ) : (
           <>
-            <div className="flex justify-end text-sm font-medium">
-              Всього: <span className="ml-2 text-green-700">{formatMoney(total)}</span>
+            <div className="flex justify-end text-sm font-semibold text-foreground">
+              Всього: <span className="ml-1.5 text-emerald-600">{formatMoney(total)}</span>
             </div>
             <Table>
               <TableHeader>
@@ -174,13 +202,13 @@ export function PaymentsPage() {
                     <TableCell className="text-sm">{formatDateTime(p.paid_at)}</TableCell>
                     <TableCell>
                       <button
-                        className="font-medium hover:underline"
+                        className="font-semibold text-foreground hover:text-[#6D5DF6] transition-colors"
                         onClick={() => navigate(`/students/${p.student_id}`)}
                       >
                         {p.student_full_name}
                       </button>
                     </TableCell>
-                    <TableCell className="text-right font-medium text-green-700">
+                    <TableCell className="text-right font-semibold text-emerald-600">
                       {formatMoney(p.amount)}
                     </TableCell>
                     <TableCell className="text-sm">{METHOD_LABEL[p.method]}</TableCell>
@@ -188,7 +216,7 @@ export function PaymentsPage() {
                       {p.comment ?? "—"}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-0.5">
                         <Button
                           variant="ghost"
                           size="icon"

@@ -6,12 +6,48 @@ import { Layout } from "../components/Layout";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { LessonStatusBadge } from "../components/LessonStatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { formatMoney } from "../lib/money";
-import { formatDateTime } from "../lib/datetime";
+import { formatTime, formatDate } from "../lib/datetime";
 import { useRouter } from "../lib/router";
-import { TrendingUp, AlertCircle, Calendar, Clock } from "lucide-react";
+import { TrendingUp, AlertCircle, Calendar, Clock, BookOpen } from "lucide-react";
+
+function IconSquare({
+  icon: Icon,
+  bg,
+  color,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  bg: string;
+  color: string;
+}) {
+  return (
+    <div
+      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+      style={{ backgroundColor: bg }}
+    >
+      <Icon className="h-5 w-5" style={{ color }} />
+    </div>
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  text: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
+      <div className="w-12 h-12 rounded-2xl bg-[#EEEBFF] flex items-center justify-center">
+        <Icon className="h-6 w-6 text-[#6D5DF6]" />
+      </div>
+      <p className="text-sm">{text}</p>
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const auth = useAuth();
@@ -44,7 +80,6 @@ export function DashboardPage() {
   if (!data) return null;
 
   const dateLabel = new Date(data.date + "T00:00:00").toLocaleDateString("uk-UA", {
-    weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -53,147 +88,168 @@ export function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold capitalize">{dateLabel}</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{dateLabel}</h1>
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Дохід за місяць
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatMoney(data.income_month)}</p>
+            <CardContent className="p-5 flex items-start gap-4">
+              <IconSquare icon={TrendingUp} bg="#E6F8EF" color="#059669" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground font-medium">Дохід за місяць</p>
+                <p className="text-2xl font-extrabold text-foreground mt-0.5 leading-tight">
+                  {formatMoney(data.income_month)}
+                </p>
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Загальний борг
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-destructive">{formatMoney(data.debt_total)}</p>
+            <CardContent className="p-5 flex items-start gap-4">
+              <IconSquare icon={AlertCircle} bg="#FFE9E9" color="#DC2626" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground font-medium">Загальний борг</p>
+                <p className="text-2xl font-extrabold text-destructive mt-0.5 leading-tight">
+                  {formatMoney(data.debt_total)}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Today */}
         <section>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Сьогодні
+          <div className="flex items-center gap-2.5 mb-3">
+            <IconSquare icon={Calendar} bg="#E8F1FF" color="#2563EB" />
+            <h2 className="text-base font-semibold text-foreground">Сьогодні</h2>
             {data.today.length > 0 && <Badge variant="secondary">{data.today.length}</Badge>}
-          </h2>
+          </div>
           {data.today.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Занять сьогодні немає</p>
+            <Card>
+              <EmptyState icon={Calendar} text="Занять сьогодні немає" />
+            </Card>
           ) : (
-            <div className="space-y-2">
-              {data.today.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => navigate(`/students/${lesson.student_id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-mono text-muted-foreground">
-                      {formatDateTime(lesson.starts_at).slice(12)}
-                    </span>
-                    <span className="font-medium">{lesson.student_full_name}</span>
-                    {lesson.topic && (
-                      <span className="text-sm text-muted-foreground">— {lesson.topic}</span>
-                    )}
+            <Card>
+              <div className="divide-y divide-border/60">
+                {data.today.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center justify-between px-5 py-3.5 hover:bg-accent/40 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/students/${lesson.student_id}`)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-sm font-mono text-muted-foreground w-12 flex-shrink-0">
+                        {formatTime(lesson.starts_at)}
+                      </span>
+                      <span className="font-semibold text-foreground truncate">
+                        {lesson.student_full_name}
+                      </span>
+                      {lesson.topic && (
+                        <span className="text-sm text-muted-foreground truncate hidden sm:block">
+                          — {lesson.topic}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className="text-xs text-muted-foreground">
+                        {lesson.duration_minutes} хв
+                      </span>
+                      <LessonStatusBadge status={lesson.status} />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {lesson.duration_minutes} хв
-                    </span>
-                    <LessonStatusBadge status={lesson.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </section>
 
         {/* Upcoming */}
         <section>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Найближчі 7 днів
+          <div className="flex items-center gap-2.5 mb-3">
+            <IconSquare icon={Clock} bg="#FFF1E6" color="#EA580C" />
+            <h2 className="text-base font-semibold text-foreground">Найближчі 7 днів</h2>
             {data.upcoming.length > 0 && <Badge variant="secondary">{data.upcoming.length}</Badge>}
-          </h2>
+          </div>
           {data.upcoming.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Запланованих занять немає</p>
+            <Card>
+              <EmptyState icon={Clock} text="Запланованих занять немає" />
+            </Card>
           ) : (
-            <div className="space-y-2">
-              {data.upcoming.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => navigate(`/students/${lesson.student_id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground w-32">
-                      {formatDateTime(lesson.starts_at)}
+            <Card>
+              <div className="divide-y divide-border/60">
+                {data.upcoming.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center justify-between px-5 py-3.5 hover:bg-accent/40 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/students/${lesson.student_id}`)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs text-muted-foreground w-28 flex-shrink-0">
+                        {formatDate(lesson.starts_at)}, {formatTime(lesson.starts_at)}
+                      </span>
+                      <span className="font-semibold text-foreground truncate">
+                        {lesson.student_full_name}
+                      </span>
+                      {lesson.topic && (
+                        <span className="text-sm text-muted-foreground truncate hidden sm:block">
+                          — {lesson.topic}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                      {lesson.duration_minutes} хв
                     </span>
-                    <span className="font-medium">{lesson.student_full_name}</span>
-                    {lesson.topic && (
-                      <span className="text-sm text-muted-foreground">— {lesson.topic}</span>
-                    )}
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {lesson.duration_minutes} хв
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </section>
 
         {/* Debtors */}
         {data.debtors.length > 0 && (
           <section>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              Боржники
-            </h2>
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium">Учень</th>
-                    <th className="px-4 py-2 text-right font-medium">Борг</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.debtors.map((d) => (
-                    <tr
-                      key={d.student_id}
-                      className="border-t hover:bg-muted/30 cursor-pointer"
-                      onClick={() => navigate(`/students/${d.student_id}`)}
-                    >
-                      <td className="px-4 py-2">
-                        {d.full_name}
-                        {d.archived && (
-                          <Badge variant="muted" className="ml-2 text-xs">
-                            архів
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium text-destructive">
-                        {formatMoney(-d.balance)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-2.5 mb-3">
+              <IconSquare icon={AlertCircle} bg="#FFE9E9" color="#DC2626" />
+              <h2 className="text-base font-semibold text-foreground">Боржники</h2>
             </div>
+            <Card>
+              <div className="divide-y divide-border/60">
+                {data.debtors.map((d) => (
+                  <div
+                    key={d.student_id}
+                    className="flex items-center justify-between px-5 py-3.5 hover:bg-accent/40 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/students/${d.student_id}`)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground">{d.full_name}</span>
+                      {d.archived && (
+                        <Badge variant="muted" className="text-xs">
+                          архів
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="font-bold text-destructive text-sm">
+                      {formatMoney(-d.balance)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </section>
+        )}
+
+        {/* Empty debtors state — only shown when section is explicitly expected */}
+        {data.debtors.length === 0 && (
+          <section>
+            <div className="flex items-center gap-2.5 mb-3">
+              <IconSquare icon={BookOpen} bg="#E6F8EF" color="#059669" />
+              <h2 className="text-base font-semibold text-foreground">Боржники</h2>
+            </div>
+            <Card>
+              <EmptyState icon={BookOpen} text="Боржників немає — чудово!" />
+            </Card>
           </section>
         )}
       </div>

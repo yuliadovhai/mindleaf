@@ -30,7 +30,7 @@ import {
 import { formatMoney } from "../lib/money";
 import { formatDateTime, localInputToIso, todayKyiv, addDays } from "../lib/datetime";
 import { useRouter } from "../lib/router";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, CalendarDays } from "lucide-react";
 
 const STATUS_OPTIONS: { value: LessonStatus | "all"; label: string }[] = [
   { value: "all", label: "Всі статуси" },
@@ -39,6 +39,17 @@ const STATUS_OPTIONS: { value: LessonStatus | "all"; label: string }[] = [
   { value: "cancelled", label: "Скасовано" },
   { value: "missed", label: "Пропуск" },
 ];
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+      <div className="w-12 h-12 rounded-2xl bg-[#E8F1FF] flex items-center justify-center">
+        <CalendarDays className="h-6 w-6 text-blue-600" />
+      </div>
+      <p className="text-sm">Занять не знайдено</p>
+    </div>
+  );
+}
 
 export function LessonsPage() {
   const auth = useAuth();
@@ -96,9 +107,9 @@ export function LessonsPage() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Заняття</h1>
+          <h1 className="text-2xl font-bold text-foreground">Заняття</h1>
           <Button
             className="gap-1.5"
             onClick={() => {
@@ -114,7 +125,12 @@ export function LessonsPage() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
           <div className="space-y-1">
-            <Label htmlFor="lp-from">З дати</Label>
+            <Label
+              htmlFor="lp-from"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              З дати
+            </Label>
             <Input
               id="lp-from"
               type="date"
@@ -124,7 +140,12 @@ export function LessonsPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="lp-to">По дату</Label>
+            <Label
+              htmlFor="lp-to"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              По дату
+            </Label>
             <Input
               id="lp-to"
               type="date"
@@ -134,7 +155,12 @@ export function LessonsPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="lp-student">Учень</Label>
+            <Label
+              htmlFor="lp-student"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              Учень
+            </Label>
             <Select value={studentId} onValueChange={setStudentId}>
               <SelectTrigger id="lp-student" className="w-48">
                 <SelectValue placeholder="Всі учні" />
@@ -150,7 +176,12 @@ export function LessonsPage() {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="lp-status">Статус</Label>
+            <Label
+              htmlFor="lp-status"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              Статус
+            </Label>
             <Select value={status} onValueChange={(v) => setStatus(v as LessonStatus | "all")}>
               <SelectTrigger id="lp-status" className="w-44">
                 <SelectValue />
@@ -174,7 +205,9 @@ export function LessonsPage() {
         ) : error ? (
           <ErrorMessage message={error} />
         ) : lessons.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">Занять не знайдено</p>
+          <div className="rounded-2xl border border-border bg-card shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
+            <EmptyState />
+          </div>
         ) : (
           <Table>
             <TableHeader>
@@ -194,20 +227,22 @@ export function LessonsPage() {
                   <TableCell className="text-sm">{formatDateTime(l.starts_at)}</TableCell>
                   <TableCell>
                     <button
-                      className="font-medium hover:underline"
+                      className="font-semibold text-foreground hover:text-[#6D5DF6] transition-colors"
                       onClick={() => navigate(`/students/${l.student_id}`)}
                     >
                       {l.student_full_name}
                     </button>
                   </TableCell>
-                  <TableCell className="text-sm">{l.duration_minutes} хв</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {l.duration_minutes} хв
+                  </TableCell>
                   <TableCell className="text-right text-sm">{formatMoney(l.price)}</TableCell>
                   <TableCell>
                     <LessonStatusBadge status={l.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{l.topic ?? "—"}</TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-0.5">
                       <Button
                         variant="ghost"
                         size="icon"

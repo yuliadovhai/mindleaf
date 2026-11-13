@@ -18,7 +18,18 @@ import {
 } from "../components/ui/table";
 import { formatMoney } from "../lib/money";
 import { useRouter } from "../lib/router";
-import { Plus, Archive, Pencil, Eye } from "lucide-react";
+import { Plus, Archive, Pencil, Eye, Users } from "lucide-react";
+
+function EmptyState({ archived }: { archived: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+      <div className="w-12 h-12 rounded-2xl bg-[#EEEBFF] flex items-center justify-center">
+        <Users className="h-6 w-6 text-[#6D5DF6]" />
+      </div>
+      <p className="text-sm">{archived ? "Архівованих учнів немає" : "Учнів поки немає"}</p>
+    </div>
+  );
+}
 
 export function StudentsPage() {
   const auth = useAuth();
@@ -73,9 +84,9 @@ export function StudentsPage() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Учні</h1>
+          <h1 className="text-2xl font-bold text-foreground">Учні</h1>
           <Button onClick={openCreate} className="gap-1.5">
             <Plus className="h-4 w-4" />
             Додати учня
@@ -104,9 +115,9 @@ export function StudentsPage() {
         ) : error ? (
           <ErrorMessage message={error} />
         ) : students.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">
-            {showArchived ? "Архівованих учнів немає" : "Учнів поки немає"}
-          </p>
+          <div className="rounded-2xl border border-border bg-card shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
+            <EmptyState archived={showArchived} />
+          </div>
         ) : (
           <Table>
             <TableHeader>
@@ -121,7 +132,7 @@ export function StudentsPage() {
             <TableBody>
               {students.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-semibold text-foreground">
                     {s.full_name}
                     {s.archived && (
                       <Badge variant="muted" className="ml-2 text-xs">
@@ -135,9 +146,9 @@ export function StudentsPage() {
                     <span
                       className={
                         s.balance < 0
-                          ? "text-destructive font-medium"
+                          ? "text-destructive font-semibold"
                           : s.balance > 0
-                            ? "text-green-600 font-medium"
+                            ? "text-emerald-600 font-semibold"
                             : "text-muted-foreground"
                       }
                     >
@@ -145,7 +156,7 @@ export function StudentsPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-0.5">
                       <Button
                         variant="ghost"
                         size="icon"

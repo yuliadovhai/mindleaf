@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "react-oidc-context";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -106,6 +113,9 @@ export function PaymentForm({
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>{initial ? "Редагувати оплату" : "Нова оплата"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {initial ? "Редагуйте дані оплати" : "Заповніть дані нової оплати"}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           {!initial && (
