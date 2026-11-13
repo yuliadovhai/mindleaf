@@ -17,8 +17,9 @@ lint:
 test:
 	$(BACKEND_RUN) pytest
 
+# Migrates first, so it also works on a fresh database before `docker compose up`.
 seed:
-	$(BACKEND_RUN) python -m app.seed --tutor-sub "$(TUTOR_SUB)"
+	$(BACKEND_RUN) sh -c 'alembic upgrade head && python -m app.seed --tutor-sub "$(TUTOR_SUB)"'
 
 # The backend already migrates on start; this is for a new revision while it runs.
 migrate-local:
