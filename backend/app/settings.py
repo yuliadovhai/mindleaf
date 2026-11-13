@@ -6,6 +6,11 @@ database connection.
 
 import os
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo
+
+# The product works in one time zone: "today", "this month" and every datetime in
+# API responses are in Kyiv time.
+TIMEZONE = ZoneInfo("Europe/Kyiv")
 
 
 @dataclass(frozen=True)

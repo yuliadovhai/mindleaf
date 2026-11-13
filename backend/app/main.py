@@ -1,10 +1,17 @@
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.api import health
+from app.api import health, me
+from app.schemas.common import ErrorResponse
+from app.services.errors import NotFound, StudentArchived, StudentNotFound
 from app.settings import settings
 
-app = FastAPI(title="tutor-cabinet API", version="0.1.0")
+app = FastAPI(
+    title="tutor-cabinet API",
+    version="0.1.0",
+    description="Кабінет репетитора. Усі суми — у копійках, час — Europe/Kyiv.",
+)
 
 if settings.cors_origins:
     app.add_middleware(
@@ -14,6 +21,27 @@ if settings.cors_origins:
         allow_headers=["Authorization", "Content-Type"],
     )
 
+
+@app.exception_handler(NotFound)
+def _not_found(request: Request, exc: NotFound) -> JSONResponse:
+    return JSONResponse({"detail": "not found"}, status.HTTP_404_NOT_FOUND)
+
+
+@app.exception_handler(StudentNotFound)
+def _student_not_found(request: Request, exc: StudentNotFound) -> JSONResponse:
+    return JSONResponse(
+        {"detail": "student_not_found"}, status.HTTP_422_UNPROCESSABLE_ENTITY
+    )
+
+
+@app.exception_handler(StudentArchived)
+def _student_archived(request: Request, exc: StudentArchived) -> JSONResponse:
+    return JSONResponse({"detail": "student_archived"}, status.HTTP_409_CONFLICT)
+
+
+UNAUTHORIZED = {401: {"model": ErrorResponse, "description": "Немає валідного токена"}}
+
 api = APIRouter(prefix="/api")
 api.include_router(health.router)
+api.include_router(me.router, responses=UNAUTHORIZED)
 app.include_router(api)
