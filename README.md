@@ -4,7 +4,7 @@
 
 Інтерфейс українською, гроші в гривнях (в API і в базі — цілі копійки), час — `Europe/Kyiv`.
 
-Структура репозиторію і контракти між частинами описані в [PROJECT.md](PROJECT.md). Зараз у репозиторії є backend, локальне оточення і CI для backend. `frontend/` і `infra/` поки що існують тільки як опис.
+Структура репозиторію і контракти між частинами описані в [PROJECT.md](PROJECT.md). Зараз у репозиторії є backend, frontend і локальне оточення. `infra/` поки що існує тільки як опис.
 
 ## Локальний запуск
 
@@ -35,13 +35,41 @@ docker compose up --build
 
 | Команда | Що робить |
 | --- | --- |
-| `make lint` | `ruff check` і `ruff format --check` |
+| `make lint` | `ruff check`, `ruff format --check` (backend) + ESLint і Prettier (frontend) |
 | `make test` | `pytest` проти PostgreSQL з compose (окрема база `tutor_cabinet_test`) |
 | `make seed` | Демо-дані: репетитор `local-dev`, 3 учні, заняття на поточний тиждень, оплати, боржник. Повторний запуск оновлює дані лише цього репетитора. |
 | `make seed TUTOR_SUB=<sub>` | Те саме, але для вашого Cognito `sub`, щоб побачити демо-дані після входу |
 | `make migrate-local` | `alembic upgrade head` на локальній базі (backend і так мігрує при старті) |
 
 Почати з чистої бази: `docker compose down -v`.
+
+## Локальний запуск фронтенду
+
+Потрібен Node.js 20. Фронтенд запускається окремо від compose.
+
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+Відкрийте http://localhost:5173. Для входу потрібен Cognito-пул — задайте змінні збірки в `frontend/.env.local`:
+
+```env
+VITE_API_URL=http://localhost:8000
+VITE_COGNITO_AUTHORITY=https://cognito-idp.us-east-1.amazonaws.com/<pool_id>
+VITE_COGNITO_CLIENT_ID=<client_id>
+VITE_COGNITO_DOMAIN=https://<domain>.auth.us-east-1.amazoncognito.com
+```
+
+Поки пулу немає — фронтенд покаже сторінку входу, але кнопка «Увійти» нікуди не переведе.
+
+| Команда | Що робить |
+| --- | --- |
+| `npm run dev` | Vite dev-сервер на http://localhost:5173 |
+| `npm run build` | TypeScript + Vite production-збірка в `dist/` |
+| `npm run lint` | ESLint |
+| `npm run format:check` | Prettier перевірка форматування |
 
 ## Як влаштовано backend
 
@@ -66,4 +94,4 @@ backend/app/
 
 ## Деплой
 
-Ще не реалізовано. Цільова схема — AWS us-east-1: фронтенд у приватному S3 за CloudFront, backend — цей самий FastAPI як Lambda container image (`backend/Dockerfile.lambda`) з function URL у VPC поруч з Aurora Serverless v2, автентифікація через Cognito, деплой з GitHub Actions через OIDC-роль. Інфраструктуру, цілі Makefile і порядок першого розгортання описано в [PROJECT.md](PROJECT.md#infra); вони з'являться разом з `infra/` і `frontend/`.
+Ще не реалізовано. Цільова схема — AWS us-east-1: фронтенд у приватному S3 за CloudFront, backend — цей самий FastAPI як Lambda container image (`backend/Dockerfile.lambda`) з function URL у VPC поруч з Aurora Serverless v2, автентифікація через Cognito, деплой з GitHub Actions через OIDC-роль. Інфраструктуру, цілі Makefile і порядок першого розгортання описано в [PROJECT.md](PROJECT.md#infra); вони з'являться разом з `infra/`.
