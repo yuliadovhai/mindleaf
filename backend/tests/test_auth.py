@@ -154,3 +154,46 @@ def test_patch_me(auth_client, db):
     )
     assert parent.status_code == 409
     assert parent.json() == {"detail": "tutor_only_setting"}
+
+
+def test_dev_tokens_are_rejected_unless_dev_auth_is_on(auth_client):
+    from app.auth.dependencies import dev_auth_enabled
+
+    app.dependency_overrides[dev_auth_enabled] = lambda: False
+    response = auth_client.get("/api/me", headers=bearer("dev:local-dev"))
+
+    assert response.status_code == 401
+
+
+def test_dev_auth_logs_in_by_sub(auth_client, db):
+    from app.auth.dependencies import dev_auth_enabled
+
+    app.dependency_overrides[dev_auth_enabled] = lambda: True
+    db.add(User(cognito_sub="local-dev", role="tutor"))
+    db.flush()
+
+    me = auth_client.get("/api/me", headers=bearer("dev:local-dev"))
+    empty = auth_client.get("/api/me", headers=bearer("dev:"))
+    real = auth_client.get("/api/me", headers=bearer(make_token("real-user")))
+
+    assert me.status_code == 200
+    assert me.json()["role"] == "tutor"
+    assert empty.status_code == 401
+    assert real.status_code == 200  # real tokens keep working
+
+
+def test_dev_auth_refuses_to_start_in_lambda():
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "DEV_AUTH": "on", "AWS_LAMBDA_FUNCTION_NAME": "api"}
+    result = subprocess.run(
+        [sys.executable, "-c", "import app.settings"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode != 0
+    assert "DEV_AUTH=on is for local development only" in result.stderr

@@ -8,6 +8,9 @@ from app.auth.jwks import AuthError, Claims, TokenVerifier, default_verifier
 from app.db import get_session
 from app.models import Role, User
 from app.services import users
+from app.settings import settings
+
+DEV_PREFIX = "dev:"
 
 # auto_error=False: a missing header must give our 401, not FastAPI's 403.
 _bearer = HTTPBearer(auto_error=False, description="Cognito access token")
@@ -17,14 +20,26 @@ def get_verifier() -> TokenVerifier:
     return default_verifier()
 
 
+def dev_auth_enabled() -> bool:
+    return settings.dev_auth
+
+
 def require_claims(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     verifier: TokenVerifier = Depends(get_verifier),
+    dev_auth: bool = Depends(dev_auth_enabled),
 ) -> Claims:
     try:
         if credentials is None or credentials.scheme.lower() != "bearer":
             raise AuthError("expected 'Authorization: Bearer <token>'")
-        return verifier.verify(credentials.credentials)
+        token = credentials.credentials
+        if dev_auth and token.startswith(DEV_PREFIX):
+            # Local demo login: the "token" is just the Cognito sub to act as.
+            sub = token.removeprefix(DEV_PREFIX)
+            if not sub:
+                raise AuthError("empty dev sub")
+            return Claims(sub=sub)
+        return verifier.verify(token)
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

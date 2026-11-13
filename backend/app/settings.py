@@ -32,6 +32,8 @@ class Settings:
     grader_token: str
     # "on": written answers wait for the grader; "off": they go to the tutor.
     ai_grader: str
+    # Local demo only: accept "Bearer dev:<sub>" without Cognito. Refused in Lambda.
+    dev_auth: bool
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -52,7 +54,12 @@ class Settings:
             aws_region=os.environ.get("AWS_REGION", "us-east-1"),
             grader_token=os.environ.get("GRADER_TOKEN", ""),
             ai_grader=os.environ.get("AI_GRADER", "on"),
+            dev_auth=os.environ.get("DEV_AUTH", "off") == "on",
         )
 
 
 settings = Settings.from_env()
+
+if settings.dev_auth and os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    # A fake-login switch must never reach AWS, even by a copied variable.
+    raise RuntimeError("DEV_AUTH=on is for local development only")

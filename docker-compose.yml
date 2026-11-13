@@ -34,6 +34,9 @@ services:
       # Written quiz answers wait for the grader (run `make grade` locally).
       AI_GRADER: "on"
       GRADER_TOKEN: local-dev-grader-token
+      # Demo login buttons ("Bearer dev:<sub>", no Cognito). Never set in AWS:
+      # the backend refuses to start with it inside Lambda.
+      DEV_AUTH: "on"
     volumes:
       - uploads:/data/uploads
     ports:
