@@ -46,8 +46,16 @@ export function assignQuiz(
   });
 }
 
-export function listAssignments(token: string, status?: AssignmentStatus): Promise<Assignment[]> {
-  return apiFetch<Assignment[]>(token, `/api/quiz-assignments${status ? `?status=${status}` : ""}`);
+export function listAssignments(
+  token: string,
+  status?: AssignmentStatus,
+  studentId?: string
+): Promise<Assignment[]> {
+  const q = new URLSearchParams();
+  if (status) q.set("status", status);
+  if (studentId) q.set("student_id", studentId);
+  const s = q.toString();
+  return apiFetch<Assignment[]>(token, `/api/quiz-assignments${s ? `?${s}` : ""}`);
 }
 
 export function getAssignment(token: string, id: string): Promise<AssignmentDetail> {

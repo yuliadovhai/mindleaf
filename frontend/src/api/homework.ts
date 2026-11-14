@@ -34,8 +34,19 @@ export function submitHomework(
 
 // ---------- tutor ----------
 
-export function listHomework(token: string, status?: SubmissionStatus): Promise<Homework[]> {
-  return apiFetch<Homework[]>(token, `/api/homework${status ? `?status=${status}` : ""}`);
+function query(params: Record<string, string | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v) q.set(k, v);
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+export function listHomework(
+  token: string,
+  status?: SubmissionStatus,
+  studentId?: string
+): Promise<Homework[]> {
+  return apiFetch<Homework[]>(token, `/api/homework${query({ status, student_id: studentId })}`);
 }
 
 export function reviewHomework(
@@ -61,8 +72,14 @@ export function createHomeworkAssignment(
   });
 }
 
-export function listHomeworkAssignments(token: string): Promise<HomeworkAssignment[]> {
-  return apiFetch<HomeworkAssignment[]>(token, "/api/homework-assignments");
+export function listHomeworkAssignments(
+  token: string,
+  studentId?: string
+): Promise<HomeworkAssignment[]> {
+  return apiFetch<HomeworkAssignment[]>(
+    token,
+    `/api/homework-assignments${query({ student_id: studentId })}`
+  );
 }
 
 export function deleteHomeworkAssignment(token: string, id: string): Promise<void> {

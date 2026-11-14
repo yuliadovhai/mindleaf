@@ -225,7 +225,7 @@ export function DashboardPage() {
                       <tr
                         key={d.student_id}
                         className="hover:bg-accent/40 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/students/${d.student_id}`)}
+                        onClick={() => navigate(`/payments/students/${d.student_id}`)}
                       >
                         <td className="px-4 py-2">
                           {d.full_name}

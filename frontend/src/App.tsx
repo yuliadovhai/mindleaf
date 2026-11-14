@@ -12,6 +12,7 @@ import { StudentsPage } from "./pages/StudentsPage";
 import { StudentPage } from "./pages/StudentPage";
 import { LessonsPage } from "./pages/LessonsPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
+import { PaymentsStudentPage } from "./pages/PaymentsStudentPage";
 import { HomeworkReviewPage } from "./pages/tutor/HomeworkReviewPage";
 import { QuizzesPage } from "./pages/tutor/QuizzesPage";
 import { QuizAssignmentPage } from "./pages/tutor/QuizAssignmentPage";
@@ -75,6 +76,7 @@ function Spinner() {
 
 function TutorPages({ path }: { path: string }) {
   const student = path.match(/^\/students\/([^/]+)$/);
+  const paymentsStudent = path.match(/^\/payments\/students\/([^/]+)$/);
   const assignment = path.match(/^\/quiz-assignments\/([^/]+)$/);
   const quizEdit = path.match(/^\/quizzes\/([^/]+)\/edit$/);
   if (path === "/") return <DashboardPage />;
@@ -82,6 +84,7 @@ function TutorPages({ path }: { path: string }) {
   if (student) return <StudentPage id={student[1]} />;
   if (path === "/lessons") return <LessonsPage />;
   if (path === "/payments") return <PaymentsPage />;
+  if (paymentsStudent) return <PaymentsStudentPage id={paymentsStudent[1]} />;
   if (path === "/homework") return <HomeworkReviewPage />;
   if (path === "/quizzes") return <QuizzesPage />;
   if (quizEdit) return <QuizEditPage id={quizEdit[1]} />;

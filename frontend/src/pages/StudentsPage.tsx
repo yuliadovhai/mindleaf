@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { formatMoney } from "../lib/money";
 import { useRouter } from "../lib/router";
 import { Plus, Archive, Pencil, Eye, Users as UsersIcon } from "lucide-react";
 
@@ -92,7 +91,13 @@ export function StudentsPage() {
     <Layout>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Учні</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Учні</h1>
+            <p className="text-sm text-muted-foreground">
+              Відкрийте учня, щоб задати ДЗ, призначити тест чи відкрити матеріали. Баланси — в
+              «Оплатах».
+            </p>
+          </div>
           <Button onClick={openCreate} className="gap-1.5">
             <Plus className="h-4 w-4" />
             Додати учня
@@ -131,8 +136,8 @@ export function StudentsPage() {
               <TableRow>
                 <TableHead>Ім'я</TableHead>
                 <TableHead>Предмет</TableHead>
-                <TableHead className="text-right">Ціна</TableHead>
-                <TableHead className="text-right">Баланс</TableHead>
+                <TableHead>Контакти</TableHead>
+                <TableHead>Батьки</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -140,7 +145,12 @@ export function StudentsPage() {
               {students.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">
-                    {s.full_name}
+                    <button
+                      className="font-medium hover:underline text-left"
+                      onClick={() => navigate(`/students/${s.id}`)}
+                    >
+                      {s.full_name}
+                    </button>
                     {s.archived && (
                       <Badge variant="muted" className="ml-2 text-xs">
                         архів
@@ -148,19 +158,13 @@ export function StudentsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{s.subject ?? "—"}</TableCell>
-                  <TableCell className="text-right">{formatMoney(s.default_price)}</TableCell>
-                  <TableCell className="text-right">
-                    <span
-                      className={
-                        s.balance < 0
-                          ? "text-destructive font-medium"
-                          : s.balance > 0
-                            ? "text-green-600 font-medium"
-                            : "text-muted-foreground"
-                      }
-                    >
-                      {formatMoney(s.balance)}
-                    </span>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {[s.phone, s.telegram].filter(Boolean).join(" · ") || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {s.parent_name
+                      ? `${s.parent_name}${s.parent_phone ? ` · ${s.parent_phone}` : ""}`
+                      : "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
@@ -168,7 +172,7 @@ export function StudentsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => navigate(`/students/${s.id}`)}
-                        title="Переглянути"
+                        title="Відкрити: заняття, ДЗ, тести, матеріали"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

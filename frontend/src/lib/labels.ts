@@ -19,3 +19,7 @@ export const METHOD_LABEL = { cash: "Готівка", card: "Картка", tran
 export function shorten(text: string, max = 80): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
+
+/** The card look of the design (rounded, soft purple shadow). */
+export const CARD =
+  "rounded-2xl border border-border bg-card shadow-[0_4px_20px_rgba(109,93,246,0.06)]";

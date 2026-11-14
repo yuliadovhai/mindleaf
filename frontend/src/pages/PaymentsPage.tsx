@@ -7,6 +7,7 @@ import { Layout } from "../components/Layout";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { PaymentForm } from "../components/PaymentForm";
+import { StudentBalances } from "../components/payments/StudentBalances";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -120,6 +121,10 @@ export function PaymentsPage() {
           </Button>
         </div>
 
+        <StudentBalances />
+
+        <h2 className="text-lg font-semibold pt-2">Останні оплати</h2>
+
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
           <div className="space-y-1">
@@ -192,7 +197,7 @@ export function PaymentsPage() {
                     <TableCell>
                       <button
                         className="font-medium hover:underline"
-                        onClick={() => navigate(`/students/${p.student_id}`)}
+                        onClick={() => navigate(`/payments/students/${p.student_id}`)}
                       >
                         {p.student_full_name}
                       </button>
