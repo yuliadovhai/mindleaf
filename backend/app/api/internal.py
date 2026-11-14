@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.schemas.common import RequestModel, ResponseModel
-from app.services import generation, grading
+from app.services import billing, generation, grading
 from app.settings import settings
 from app.storage import Storage, get_storage
 
@@ -173,3 +173,43 @@ def post_generation_failure(
 ) -> GenerationOutcome:
     job = generation.fail(session, job_id, body.reason)
     return GenerationOutcome(job_id=job.id, status=job.status, quiz_id=job.quiz_id)
+
+
+# ---------- cancelling LiqPay subscriptions ----------
+
+billing_router = APIRouter(prefix="/internal/billing", tags=["internal (AI worker)"])
+
+
+class CancelTaskOut(ResponseModel):
+    subscription_id: uuid.UUID
+    request_url: str
+    data: str = Field(description="Підписаний API запит unsubscribe: надіслати як є")
+    signature: str
+
+
+class CancelResult(RequestModel):
+    status: Annotated[str, Field(max_length=50)] | None = None
+
+
+@billing_router.post("/claim", response_model=list[CancelTaskOut])
+def claim_cancellations(
+    limit: int = Query(5, ge=1, le=20),
+    _: None = Depends(require_grader),
+    session: Session = Depends(get_session),
+) -> list[CancelTaskOut]:
+    """Signed "unsubscribe" requests to forward to LiqPay (the worker has no key)."""
+    return [
+        CancelTaskOut.model_validate(task, from_attributes=True)
+        for task in billing.claim_cancellations(session, limit)
+    ]
+
+
+@billing_router.post("/{subscription_id}/result")
+def post_cancel_result(
+    subscription_id: uuid.UUID,
+    body: CancelResult,
+    _: None = Depends(require_grader),
+    session: Session = Depends(get_session),
+) -> dict:
+    sub = billing.cancel_result(session, subscription_id, body.status)
+    return {"subscription_id": str(sub.id), "status": sub.status}

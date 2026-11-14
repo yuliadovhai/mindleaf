@@ -1,6 +1,12 @@
 """ORM models. Importing this package registers every table on Base.metadata."""
 
 from app.models.access import Invite, Relation, StudentLink
+from app.models.billing import (
+    BillingEvent,
+    BillingPeriod,
+    Subscription,
+    SubscriptionStatus,
+)
 from app.models.homework import (
     HomeworkAssignment,
     HomeworkMaterial,
@@ -27,6 +33,8 @@ from app.models.student import Student
 from app.models.user import Role, User
 
 __all__ = [
+    "BillingEvent",
+    "BillingPeriod",
     "HomeworkAssignment",
     "HomeworkMaterial",
     "AssignmentStatus",
@@ -51,6 +59,8 @@ __all__ = [
     "Role",
     "Student",
     "StudentLink",
+    "Subscription",
+    "SubscriptionStatus",
     "SubmissionPhoto",
     "SubmissionStatus",
     "User",

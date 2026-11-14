@@ -1,13 +1,15 @@
 """FastAPI dependencies: bearer token -> Claims -> the current User, by role."""
 
-from fastapi import Depends, HTTPException, status
+import re
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.auth.jwks import AuthError, Claims, TokenVerifier, default_verifier
 from app.db import get_session
 from app.models import Role, User
-from app.services import users
+from app.services import billing, users
 from app.settings import settings
 
 DEV_PREFIX = "dev:"
@@ -65,6 +67,27 @@ def get_current_tutor(user: User = Depends(get_current_user)) -> User:
     if user.role != Role.tutor:
         raise _forbidden()
     return user
+
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+# What a read-only tutor may still do: archive students to get back under the
+# Free limit (DELETE /api/students/{id}); /api/billing and /api/me are on
+# routers without this check.
+ARCHIVE_STUDENT = re.compile(r"^/api/students/[^/]+$")
+
+
+def require_writable(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    """A tutor over the Free limit without Pro may only look (402 plan_read_only)."""
+    if request.method in SAFE_METHODS or user.role != Role.tutor:
+        return
+    if request.method == "DELETE" and ARCHIVE_STUDENT.match(request.url.path):
+        return
+    if billing.plan_state(session, user.id).read_only:
+        raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, "plan_read_only")
 
 
 def get_current_member(user: User = Depends(get_current_user)) -> User:

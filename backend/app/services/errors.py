@@ -38,3 +38,11 @@ class Invalid(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+class PaymentRequired(Exception):
+    """The tutor's plan does not allow this (402 with a code)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code

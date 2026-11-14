@@ -34,6 +34,21 @@ class Settings:
     ai_grader: str
     # Local demo only: accept "Bearer dev:<sub>" without Cognito. Refused in Lambda.
     dev_auth: bool
+    # LiqPay merchant keys (sandbox_... keys for testing). Without them, billing
+    # runs in "demo" mode locally and is disabled in Lambda.
+    liqpay_public_key: str
+    liqpay_private_key: str
+    liqpay_sandbox: bool
+    # The site's origin: LiqPay sends the payer back here after checkout.
+    site_url: str
+    in_lambda: bool
+
+    @property
+    def billing_mode(self) -> str:
+        """ "liqpay", "demo" (local, no keys) or "disabled" (Lambda, no keys)."""
+        if self.liqpay_public_key and self.liqpay_private_key:
+            return "liqpay"
+        return "disabled" if self.in_lambda else "demo"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -55,6 +70,11 @@ class Settings:
             grader_token=os.environ.get("GRADER_TOKEN", ""),
             ai_grader=os.environ.get("AI_GRADER", "on"),
             dev_auth=os.environ.get("DEV_AUTH", "off") == "on",
+            liqpay_public_key=os.environ.get("LIQPAY_PUBLIC_KEY", ""),
+            liqpay_private_key=os.environ.get("LIQPAY_PRIVATE_KEY", ""),
+            liqpay_sandbox=os.environ.get("LIQPAY_SANDBOX", "0") == "1",
+            site_url=os.environ.get("SITE_URL", "http://localhost:5173").rstrip("/"),
+            in_lambda=bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME")),
         )
 
 

@@ -220,3 +220,17 @@ def storage(tmp_path):
     local = LocalStorage(str(tmp_path), "test-secret", "http://testserver")
     app.dependency_overrides[get_storage] = lambda: local
     return local
+
+
+@pytest.fixture(autouse=True)
+def pro_by_default(request, monkeypatch):
+    """Every tutor is on Pro unless a test is marked real_billing.
+
+    Plan checks all go through app.services.billing.is_pro, so this switches
+    them off for tests about other things.
+    """
+    if request.node.get_closest_marker("real_billing"):
+        return
+    from app.services import billing
+
+    monkeypatch.setattr(billing, "is_pro", lambda session, tutor_id: True)

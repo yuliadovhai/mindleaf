@@ -2,7 +2,8 @@
 
 Invoked every minute by EventBridge Scheduler (and may be invoked right after
 a quiz is submitted or a generation is requested). Each run grades written
-quiz answers, then turns queued materials into draft quizzes.
+quiz answers, then turns queued materials into draft quizzes, then forwards
+cancelled LiqPay subscriptions (the API signs them; the worker has no key).
 
 Environment: API_URL, GRADER_TOKEN, GRADER (bedrock | fake | off),
 GRADER_MODEL, AWS_REGION.
@@ -13,16 +14,23 @@ import os
 
 from app.grader.api_client import ApiClient
 from app.grader.graders import DEFAULT_MODEL
-from app.grader.run import make_generator, make_grader, run, run_generation
+from app.grader.run import (
+    make_generator,
+    make_grader,
+    run,
+    run_billing,
+    run_generation,
+)
 
 logging.getLogger().setLevel(logging.INFO)
 
 
 def handler(event, context) -> dict:
     kind = os.environ.get("GRADER", "bedrock")
-    if kind == "off":
-        return {"graded": 0, "failed": 0, "grader": "off"}
     api = ApiClient(os.environ["API_URL"], os.environ["GRADER_TOKEN"])
+    if kind == "off":
+        # The AI kill switch must not stop cancelling subscriptions.
+        return {**run_billing(api), "grader": "off"}
     model = os.environ.get("GRADER_MODEL", DEFAULT_MODEL)
     region = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -33,4 +41,5 @@ def handler(event, context) -> dict:
     counts |= run_generation(
         api, make_generator(kind, model, region), time_left=time_left
     )
+    counts |= run_billing(api)
     return {**counts, "grader": kind}

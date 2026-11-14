@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Student
 from app.schemas.student import StudentCreate, StudentUpdate
-from app.services import balances
+from app.services import balances, billing
 from app.services.errors import NotFound
 
 
@@ -50,6 +50,7 @@ def get_student(
 def create_student(
     session: Session, tutor_id: uuid.UUID, data: StudentCreate
 ) -> StudentWithBalance:
+    billing.require_student_capacity(session, tutor_id)
     student = Student(tutor_id=tutor_id, **data.model_dump())
     session.add(student)
     session.commit()
@@ -61,7 +62,10 @@ def update_student(
     session: Session, tutor_id: uuid.UUID, student_id: uuid.UUID, data: StudentUpdate
 ) -> StudentWithBalance:
     student = get_owned(session, tutor_id, student_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    fields = data.model_dump(exclude_unset=True)
+    if student.archived and fields.get("archived") is False:
+        billing.require_student_capacity(session, tutor_id)
+    for field, value in fields.items():
         setattr(student, field, value)
     session.commit()
     return get_student(session, tutor_id, student_id)

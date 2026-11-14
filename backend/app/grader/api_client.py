@@ -1,6 +1,7 @@
 """HTTP client for /api/internal/grading (standard library only)."""
 
 import json
+import urllib.parse
 import urllib.request
 
 from app.grader.tasks import GeneratedQuiz, GenerationTask, GradingTask, QuestionResult
@@ -61,3 +62,20 @@ class ApiClient:
         if len(data) > max_bytes:
             raise ValueError("material is larger than 10 MB")
         return data
+
+    # ---------- cancelling LiqPay subscriptions ----------
+
+    def claim_cancellations(self, limit: int = 5) -> list[dict]:
+        return self._post(f"/claim?limit={limit}", area="billing")
+
+    def post_cancel_result(self, subscription_id: str, status: str | None) -> dict:
+        return self._post(
+            f"/{subscription_id}/result", {"status": status}, area="billing"
+        )
+
+    def forward_to_liqpay(self, url: str, data: str, signature: str) -> dict:
+        """POST the API-signed request to LiqPay as a form; LiqPay answers JSON."""
+        body = urllib.parse.urlencode({"data": data, "signature": signature}).encode()
+        request = urllib.request.Request(url, data=body, method="POST")
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            return json.loads(response.read())

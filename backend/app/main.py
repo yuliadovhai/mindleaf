@@ -1,9 +1,10 @@
-from fastapi import APIRouter, FastAPI, Request, status
+from fastapi import APIRouter, Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
     access,
+    billing,
     dashboard,
     files,
     health,
@@ -17,12 +18,14 @@ from app.api import (
     quizzes,
     students,
 )
+from app.auth.dependencies import require_writable
 from app.schemas.common import ErrorResponse
 from app.services.errors import (
     Conflict,
     Forbidden,
     Invalid,
     NotFound,
+    PaymentRequired,
     StudentArchived,
     StudentNotFound,
 )
@@ -70,6 +73,11 @@ def _conflict(request: Request, exc: Conflict) -> JSONResponse:
     return JSONResponse({"detail": exc.code}, status.HTTP_409_CONFLICT)
 
 
+@app.exception_handler(PaymentRequired)
+def _payment_required(request: Request, exc: PaymentRequired) -> JSONResponse:
+    return JSONResponse({"detail": exc.code}, status.HTTP_402_PAYMENT_REQUIRED)
+
+
 @app.exception_handler(Invalid)
 def _invalid(request: Request, exc: Invalid) -> JSONResponse:
     return JSONResponse({"detail": exc.code}, status.HTTP_422_UNPROCESSABLE_ENTITY)
@@ -79,27 +87,34 @@ UNAUTHORIZED = {401: {"model": ErrorResponse, "description": "Немає вал�
 FORBIDDEN = {403: {"model": ErrorResponse, "description": "Роль не має доступу"}}
 NOT_FOUND = {404: {"model": ErrorResponse, "description": "Немає запису або він чужий"}}
 
+PAYMENT_REQUIRED = {
+    402: {
+        "model": ErrorResponse,
+        "description": "plan_read_only | plan_limit | pro_required (тариф)",
+    }
+}
+COMMON = {**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
+# Routers where a tutor can change data: blocked while the plan is read-only.
+WRITABLE = {
+    "responses": {**COMMON, **PAYMENT_REQUIRED},
+    "dependencies": [Depends(require_writable)],
+}
+
 api = APIRouter(prefix="/api")
 api.include_router(health.router)
 api.include_router(me.router, responses=UNAUTHORIZED)
-api.include_router(
-    students.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
-)
-api.include_router(lessons.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
-api.include_router(
-    payments.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
-)
-api.include_router(access.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
-api.include_router(portal.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
-api.include_router(
-    homework.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
-)
-api.include_router(quizzes.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND})
-api.include_router(
-    materials.router, responses={**UNAUTHORIZED, **FORBIDDEN, **NOT_FOUND}
-)
+api.include_router(students.router, **WRITABLE)
+api.include_router(lessons.router, **WRITABLE)
+api.include_router(payments.router, **WRITABLE)
+api.include_router(access.router, **WRITABLE)
+api.include_router(portal.router, responses=COMMON)
+api.include_router(homework.router, **WRITABLE)
+api.include_router(quizzes.router, **WRITABLE)
+api.include_router(materials.router, **WRITABLE)
+api.include_router(billing.router, responses=COMMON)
 api.include_router(files.router)
 api.include_router(internal.router)
 api.include_router(internal.generation_router)
+api.include_router(internal.billing_router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

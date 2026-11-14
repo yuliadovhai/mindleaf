@@ -304,14 +304,28 @@ def test_fake_grader_uses_word_overlap():
     assert [r.points for r in results] == [0, 1]
 
 
-def test_lambda_handler_off_does_nothing(monkeypatch):
+def test_lambda_handler_off_skips_ai_but_still_cancels(monkeypatch):
+    """GRADER=off stops paid AI calls, not the (free) subscription cancels."""
     monkeypatch.setenv("GRADER", "off")
+    monkeypatch.setenv("API_URL", "http://api.invalid")
+    monkeypatch.setenv("GRADER_TOKEN", "t")
+    calls = []
 
-    assert grader_lambda.handler({}, None) == {
-        "graded": 0,
-        "failed": 0,
-        "grader": "off",
-    }
+    def fake_billing(api):
+        calls.append(api)
+        return {"unsubscribed": 0, "unsubscribe_failed": 0}
+
+    def no_ai(*args, **kwargs):
+        raise AssertionError("AI must not run with GRADER=off")
+
+    monkeypatch.setattr(grader_lambda, "run_billing", fake_billing)
+    monkeypatch.setattr(grader_lambda, "run", no_ai)
+    monkeypatch.setattr(grader_lambda, "run_generation", no_ai)
+
+    result = grader_lambda.handler({}, None)
+
+    assert result == {"unsubscribed": 0, "unsubscribe_failed": 0, "grader": "off"}
+    assert len(calls) == 1
 
 
 def test_grader_package_does_not_need_the_database():

@@ -73,6 +73,29 @@ def run_generation(
     return counts
 
 
+def run_billing(api) -> dict[str, int]:
+    """Forward the API-signed "unsubscribe" requests to LiqPay.
+
+    No model is involved and the calls are free, so a failed one simply stays
+    queued for the next run (the API gives up after a few attempts).
+    """
+    counts = {"unsubscribed": 0, "unsubscribe_failed": 0}
+    for task in api.claim_cancellations():
+        status = None
+        try:
+            answer = api.forward_to_liqpay(
+                task["request_url"], task["data"], task["signature"]
+            )
+            status = answer.get("status")
+        except Exception:
+            log.exception("unsubscribe failed for %s", task["subscription_id"])
+        api.post_cancel_result(task["subscription_id"], status)
+        counts[
+            "unsubscribed" if status == "unsubscribed" else "unsubscribe_failed"
+        ] += 1
+    return counts
+
+
 def make_generator(kind: str, model: str, region: str) -> Generator:
     if kind == "bedrock":
         return BedrockGenerator(model=model, region=region)
@@ -109,6 +132,7 @@ def main() -> None:
     started = time.monotonic()
     counts = run(api, make_grader(args.grader, args.model, region), limit=args.limit)
     counts |= run_generation(api, make_generator(args.grader, args.model, region))
+    counts |= run_billing(api)
     print(f"{counts} in {time.monotonic() - started:.1f}s with {args.grader}")
 
 

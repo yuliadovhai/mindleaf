@@ -37,6 +37,13 @@ services:
       # Demo login buttons ("Bearer dev:<sub>", no Cognito). Never set in AWS:
       # the backend refuses to start with it inside Lambda.
       DEV_AUTH: "on"
+      # Tariff payments. Without keys billing runs in demo mode (a fake checkout
+      # page); with LiqPay sandbox keys in .env the real checkout opens, but
+      # LiqPay cannot call back to localhost, so Pro is granted only in AWS.
+      LIQPAY_PUBLIC_KEY: ${LIQPAY_PUBLIC_KEY:-}
+      LIQPAY_PRIVATE_KEY: ${LIQPAY_PRIVATE_KEY:-}
+      LIQPAY_SANDBOX: ${LIQPAY_SANDBOX:-1}
+      SITE_URL: http://localhost:5173
     volumes:
       - uploads:/data/uploads
     ports:

@@ -27,7 +27,7 @@ from app.models import (
     User,
 )
 from app.schemas.quiz import AnswerIn, QuizIn
-from app.services import access, clock, students
+from app.services import access, billing, clock, students
 from app.services.errors import (
     Conflict,
     Forbidden,
@@ -346,10 +346,10 @@ def submit(
         assignment.answers.append(row)
 
     assignment.submitted_at = now
+    # Written answers go to the AI only on Pro (it costs money); else the tutor.
+    ai = ai_grading_enabled() and billing.is_pro(session, assignment.tutor_id)
     assignment.status = (
-        AssignmentStatus.submitted
-        if ai_grading_enabled()
-        else AssignmentStatus.needs_review
+        AssignmentStatus.submitted if ai else AssignmentStatus.needs_review
     )
     finish_if_complete(assignment)
     session.commit()

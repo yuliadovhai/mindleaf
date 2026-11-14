@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models import GenerationStatus, QuizGeneration, QuizStatus
 from app.schemas.quiz import QuizIn
-from app.services import clock, materials, quizzes
+from app.services import billing, clock, materials, quizzes
 from app.services.errors import Conflict, Invalid, NotFound
 from app.storage import Storage
 
@@ -46,6 +46,7 @@ def request(
     instructions: str | None,
 ) -> QuizGeneration:
     materials.get_owned(session, tutor_id, material_id)
+    billing.require_pro(session, tutor_id)  # AI costs money: Pro only
     pending = session.scalar(
         select(func.count())
         .select_from(QuizGeneration)
