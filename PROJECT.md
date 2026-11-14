@@ -16,6 +16,7 @@
 | Валюта | гривня; **усі суми — цілі числа в копійках** (`int`), у JSON і в БД. Гривні з копійками показує тільки фронтенд. |
 | Часовий пояс | `Europe/Kyiv`. «Сьогодні», «поточний місяць» і межі днів рахуються в ньому. У БД час зберігається як `timestamptz`. |
 | Користувачі | репетитор, учень, батьки; одна роль на акаунт, назавжди. Репетитор бачить лише свої дані, учень і батьки — лише прив'язані картки. |
+| Тарифи | платить лише репетитор. **Безкоштовний:** до 3 активних учнів, без ШІ. **Pro:** 199 грн/міс або 1990 грн/рік, без ліміту учнів, ШІ-перевірка й генерація тестів. Підписка через LiqPay з автосписанням. Pro закінчився, а активних учнів більше 3 — кабінет репетитора лише для перегляду (архівація учнів дозволена). Учні й батьки тарифу не помічають. |
 | Вартість | інфраструктура в AWS не має погодинних платежів: без NAT, без VPC endpoints, без Secrets Manager. Платимо лише за використання (Lambda, Aurora 0 ACU у простої, S3, токени Claude), а це покривають кредити акаунта. |
 
 ## Чого в репозиторії немає і не буде
@@ -179,7 +180,8 @@ tutor-cabinet/
         ├── 0007-roles-and-invite-codes.md
         ├── 0008-ai-grading-outside-the-vpc.md
         ├── 0009-homework-photos-presigned.md
-        └── 0010-quiz-generation-from-materials.md
+        ├── 0010-quiz-generation-from-materials.md
+        └── 0011-tariffs-and-liqpay.md
 ```
 
 ## Кореневі файли
@@ -270,6 +272,9 @@ Ruff: `target-version = "py312"`, `line-length = 88`, `select = ["E", "F", "I", 
 | `FILES_SECRET` | для `local` | `local-dev-only-secret` | — |
 | `PUBLIC_API_URL` | для `local` | `http://localhost:8000` — база посилань `/api/files/...` | — |
 | `DEV_AUTH` | ні | `on` — приймати `Bearer dev:<sub>` без Cognito (демо-кнопки входу) | не задається; з `on` backend у Lambda не стартує |
+| `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY` | ні | порожні → демо-оплата; ключі `sandbox_...` з `.env` → справжня форма LiqPay (але callback до localhost не дійде) | Sensitive-змінні workspace. Без них у Lambda оплата вимкнена (`409 billing_disabled`). |
+| `LIQPAY_SANDBOX` | ні | `1` | `1` для тестових ключів, `0` у продакшені |
+| `SITE_URL` | ні | `http://localhost:5173` | `https://<домен CloudFront>`: куди LiqPay повертає платника |
 | `GRADER_TOKEN` | ні | `local-dev-grader-token` | Спільний секрет з Lambda оцінювача (`random_password` або sensitive-змінна workspace). Порожній → `/api/internal` відповідає `404`. |
 | `AI_GRADER` | ні | `on` | `on`; `off` — письмові відповіді одразу йдуть репетитору (`needs_review`), Bedrock не викликається. |
 
@@ -459,6 +464,13 @@ FK `(student_id, tutor_id)` → `students (id, tutor_id)`. Індекси: `(tut
 
 Тест, який уже комусь призначено, змінити чи видалити не можна (`409 quiz_in_use`): відповіді посилаються на його питання.
 
+### `subscriptions` і `billing_events` (міграція `0010`)
+
+- `subscriptions`: одна підписка LiqPay (`order_id` unique, `tc-<hex>`): `tutor_id`, `period` (`month` \| `year`), `amount` (копійки за період), `status` (`pending` — форму видано; `active` — LiqPay списує; `cancelled` — більше не списує), `paid_until` (до коли оплачено), `cancel_requested_at`, `cancel_claimed_at`, `cancel_attempts` (скасування через воркер, до 10 спроб), `created_at`.
+- `billing_events`: кожен перевірений callback LiqPay як є (`order_id`, `payment_id`, `action`, `status`, `payload` JSONB). Частковий унікальний індекс `(payment_id, status) WHERE payment_id IS NOT NULL` не дає повтору застосуватися двічі.
+
+Pro = є підписка з `paid_until + 3 дні > зараз` (3 дні — бо LiqPay повторює невдале списання 72 години). Кожна оплата (`success` або `subscribed` з новим `payment_id`) подовжує `paid_until` на календарний місяць чи рік від `max(зараз, paid_until)`.
+
 ### Баланс
 
 ```
@@ -487,6 +499,7 @@ balance(student) = Σ payments.amount  −  Σ lessons.price where lessons.statu
 | Код | Коли | Тіло |
 | --- | --- | --- |
 | `401` | Немає токена або він невалідний | `{"detail": "invalid or missing token"}` |
+| `402` | Тариф не дозволяє дію | `{"detail": "plan_read_only" \| "plan_limit" \| "pro_required"}` |
 | `403` | Роль не має доступу до ендпоінта або дії | `{"detail": "forbidden"}` |
 | `404` | Запису з таким `id` немає **або він чужий / не прив'язаний** (відповідь однакова) | `{"detail": "not found"}`; для кодів — `{"detail": "invite_not_found"}` |
 | `409` | Порушення бізнес-правила | `{"detail": "<code>"}`, коди нижче |
@@ -504,6 +517,7 @@ balance(student) = Σ payments.amount  −  Σ lessons.price where lessons.statu
 | `no_homework`, `already_reviewed`, `bad_photo_key` | здача ДЗ |
 | `quiz_in_use`, `not_submitted`, `already_submitted`, `quiz_is_draft` | тести |
 | `too_many_generations` | генерація тесту: уже 3 незавершені |
+| `already_subscribed`, `billing_disabled`, `no_active_subscription` | тариф і оплата |
 
 ### Ізоляція даних
 
@@ -638,6 +652,27 @@ balance(student) = Σ payments.amount  −  Σ lessons.price where lessons.statu
 
 Воркер передає Claude Haiku 5.5 матеріал як є: PDF — блоком `document`, фото — блоком `image`, текст — екранованим текстом. Системний промпт оголошує матеріал і побажання репетитора лише даними. Відповідь приходить через structured output; питання, що порушують правила (неправильна кількість правильних варіантів, письмове без еталона, невідомий тип), відкидаються, бали обрізаються до `1..10`. Повторів немає, як і в оцінювача.
 
+### Тариф і оплата: `/api/billing`
+
+Репетитор (`403` для інших ролей):
+
+| Метод і шлях | Що робить |
+| --- | --- |
+| `GET /api/billing` | `{plan: "free" \| "pro", pro_until, period, subscription_status, cancel_pending, active_students, free_student_limit: 3, read_only, prices: {month: 19900, year: 199000}, billing_mode: "liqpay" \| "demo" \| "disabled"}` |
+| `POST /api/billing/checkout` | `{period: "month" \| "year"}` → `{mode, url, data, signature, order_id}`. API створює `subscriptions` зі статусом `pending` і **підписує форму LiqPay локально** (без звернення до LiqPay): `action = "subscribe"`, `amount` у гривнях, `currency = "UAH"`, `subscribe_periodicity`, `subscribe_date_start` (зараз або кінець оплаченого Pro), `server_url = {PUBLIC_API_URL}/api/billing/liqpay/callback`, `result_url = {SITE_URL}/billing?checkout=done`, `sandbox = "1"` з `LIQPAY_SANDBOX=1`. Браузер POST-ить `data` і `signature` формою на `url` (`https://www.liqpay.ua/api/3/checkout`). `409 already_subscribed`, `409 billing_disabled`. |
+| `POST /api/billing/cancel` | Зупинити автосписання; оплачений час лишається. `409 no_active_subscription`. |
+| `POST /api/billing/demo/pay` | Лише демо-режим (локально без ключів): `{order_id}` → підписує callback демо-ключем і проганяє той самий обробник. В інших режимах `404`. |
+| `POST /api/billing/liqpay/callback` | `server_url` для LiqPay: form-поля `data`, `signature`, без токена — справжність доводить підпис (`400`, якщо не збігся). Оплата (`success`/`subscribed`, а в sandbox і `sandbox`) подовжує Pro; `unsubscribed` → `cancelled`; інше лише записується. Завжди `200` для валідного підпису, щоб LiqPay не повторював. |
+
+**Підпис** — як в офіційних SDK LiqPay (версія API 3): `data = base64(JSON)`, `signature = base64(SHA-1(private_key + data + private_key))`. Текст поточної документації для версії 7 згадує SHA3-256, тоді як її ж приклади — SHA-1, тож callback приймається з будь-яким із двох (обидва потребують приватного ключа). Перевірити на sandbox, що саме надсилає LiqPay.
+
+**Обмеження за тарифом** (усі через `services/billing.py`):
+- `POST /api/students` і розархівування понад 3 активних учнів без Pro → `402 plan_limit`;
+- генерація тестів без Pro → `402 pro_required`; письмові відповіді без Pro не йдуть до ШІ, а одразу до репетитора (`needs_review`);
+- кабінет лише для перегляду (`read_only`) → будь-який `POST/PUT/PATCH/DELETE` репетитора на його роутерах → `402 plan_read_only`; дозволені `DELETE /api/students/{id}` (архівація), `/api/billing/*`, `/api/me`. Портал учня й батьків не обмежується.
+
+**Скасування в LiqPay** вимагає запиту сервер-сервер (`action = "unsubscribe"` на `https://www.liqpay.ua/api/request`), а API Lambda без інтернету. Тому API підписує запит, а ШІ-воркер поза VPC лише пересилає його (`/api/internal/billing/claim` → LiqPay → `/api/internal/billing/{id}/result`); приватного ключа воркер не має. Невдалі спроби повторюються наступним запуском (до 10). Воркер робить це й з `GRADER=off`. У демо-режимі скасування миттєве.
+
 ### Учні
 
 **`Student`** (відповідь):
@@ -757,7 +792,7 @@ balance(student) = Σ payments.amount  −  Σ lessons.price where lessons.statu
 Навіщо: односторінковий кабінет українською для трьох ролей.
 
 - **Вхід.** Після входу `App.tsx` завантажує `GET /api/me` і обирає кабінет за роллю. Якщо `role` = `null`, показується `RoleChoicePage`: «Я репетитор» або код запрошення.
-- **Репетитор:** дашборд (з лічильниками перевірки), учні, заняття, оплати, `/homework` (черга ДЗ і вкладка «Завдання учням»), `/quizzes` (конструктор, призначення, чернетки від ШІ), `/quizzes/<id>/edit` (перегляд, редагування й публікація чернетки), `/quiz-assignments/<id>` (відповіді й ручні бали), `/materials` (завантаження, доступ, «Згенерувати тест»); у картці учня — вкладка «Доступ учня й батьків» (`StudentAccessPanel`).
+- **Репетитор:** дашборд (з лічильниками перевірки), учні, заняття, оплати, `/homework` (черга ДЗ і вкладка «Завдання учням»), `/quizzes` (конструктор, призначення, чернетки від ШІ), `/quizzes/<id>/edit` (перегляд, редагування й публікація чернетки), `/quiz-assignments/<id>` (відповіді й ручні бали), `/materials` (завантаження, доступ, «Згенерувати тест»), `/billing` (тарифи, оплата через LiqPay, скасування; `/billing/demo-checkout` — демо-сторінка оплати); банер «лише перегляд» над усіма сторінками, коли `read_only`; у картці учня — вкладка «Доступ учня й батьків» (`StudentAccessPanel`).
 - **Учень і батьки** (`src/pages/portal/`): головна, `/schedule` (скасування для батьків), `/homework` (окремі ДЗ і ДЗ із занять), `/homework/<id>` і `/lessons/<id>/homework` (здача з фото — лише учень; `HomeworkAnswer`), `/quizzes` і `/quizzes/<id>` (проходження — лише учень), `/materials`, `/payments` (лише батьки).
 - **Звідки береться токен** знає лише `src/auth/session.ts` (`useSession()`): справжній Cognito через `react-oidc-context` або демо-вхід. `VITE_DEV_LOGIN=true` (є лише в `frontend/.env.development`, тобто тільки в `npm run dev`) показує три кнопки входу в seed-акаунти; backend приймає `Bearer dev:<sub>` лише з `DEV_AUTH=on`.
 
@@ -815,10 +850,10 @@ Backend з'єднується з базою за хостом `postgres`. Тес
 | Файл | Що описує |
 | --- | --- |
 | `versions.tf` | `required_version >= 1.10`; блок `cloud` (організація команди, workspace `tutor-cabinet`); провайдер `hashicorp/aws ~> 6.0`, регіон `var.region`; `default_tags { PROJECT_NAME = var.project_name, ManagedBy = "terraform" }` — тег на всіх ресурсах. |
-| `variables.tf` | `region` (default `us-east-1`), `project_name` (default `tutor-cabinet`), `domain_prefix` (Cognito), `google_client_id`, `google_client_secret` (sensitive), `db_password` (sensitive), `github_repository` (`owner/name`), `backend_image_tag` (тег першого образу; далі образ оновлює деплой). Значень у репозиторії немає — вони у змінних workspace. |
+| `variables.tf` | `liqpay_public_key`, `liqpay_private_key` (sensitive), `liqpay_sandbox`; `region` (default `us-east-1`), `project_name` (default `tutor-cabinet`), `domain_prefix` (Cognito), `google_client_id`, `google_client_secret` (sensitive), `db_password` (sensitive), `github_repository` (`owner/name`), `backend_image_tag` (тег першого образу; далі образ оновлює деплой). Значень у репозиторії немає — вони у змінних workspace. |
 | `network.tf` | Власний VPC; дві приватні підмережі у двох AZ (вимога DB subnet group); без Internet Gateway, без NAT, без VPC endpoints — API Lambda не викликає AWS API (presigned URL для S3 підписуються локально, а Bedrock кличе інша Lambda поза VPC). Security groups: `lambda` (egress лише 5432 до `db`), `db` (ingress 5432 лише від `lambda`). |
 | `database.tf` | DB subnet group; Aurora PostgreSQL 16 cluster, Serverless v2 `min_capacity = 0`, `max_capacity = 1`, auto-pause; один інстанс `db.serverless`; шифрування сховища; бекапи 7 днів; фінальний snapshot при видаленні; master-пароль з `var.db_password`. |
-| `api.tf` | ECR-репозиторій бекенду (теги `IMMUTABLE`, бо тег = commit SHA); IAM-роль Lambda з `AWSLambdaVPCAccessExecutionRole`; CloudWatch log group (14 днів); Lambda `package_type = "Image"`, `linux/amd64` (x86_64), 512 MB, timeout 30 s, `vpc_config` з підмережами й SG `lambda`; env `DATABASE_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `CORS_ORIGINS`, `COGNITO_JWKS` (початково `{"keys":[]}`), `STORAGE_BACKEND=s3`, `UPLOADS_BUCKET`, `GRADER_TOKEN`, `AI_GRADER`; роль має `s3:PutObject`/`s3:GetObject` на `homework/*` і `materials/*` бакета (без цього presigned URL підписуються, але S3 їх відхиляє); `lifecycle.ignore_changes` на `image_uri` і `COGNITO_JWKS`, бо їх оновлює деплой; function URL з `authorization_type = "NONE"` (автентифікацію робить застосунок) і **без** блоку `cors` (CORS робить FastAPI — один механізм локально і в хмарі). |
+| `api.tf` | ECR-репозиторій бекенду (теги `IMMUTABLE`, бо тег = commit SHA); IAM-роль Lambda з `AWSLambdaVPCAccessExecutionRole`; CloudWatch log group (14 днів); Lambda `package_type = "Image"`, `linux/amd64` (x86_64), 512 MB, timeout 30 s, `vpc_config` з підмережами й SG `lambda`; env `DATABASE_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `CORS_ORIGINS`, `COGNITO_JWKS` (початково `{"keys":[]}`), `STORAGE_BACKEND=s3`, `UPLOADS_BUCKET`, `GRADER_TOKEN`, `AI_GRADER`, `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY`, `LIQPAY_SANDBOX`, `SITE_URL`, `PUBLIC_API_URL` (function URL — з нього складається `server_url` для LiqPay); роль має `s3:PutObject`/`s3:GetObject` на `homework/*` і `materials/*` бакета (без цього presigned URL підписуються, але S3 їх відхиляє); `lifecycle.ignore_changes` на `image_uri` і `COGNITO_JWKS`, бо їх оновлює деплой; function URL з `authorization_type = "NONE"` (автентифікацію робить застосунок) і **без** блоку `cors` (CORS робить FastAPI — один механізм локально і в хмарі). |
 | `uploads.tf` | Приватний S3-бакет фото ДЗ і матеріалів (`homework/*`, `materials/*`): block public access, шифрування SSE-S3, CORS лише для домену сайту (`POST` для завантаження, `GET` для перегляду), без версіонування. Обмеження типу й розміру задає presigned POST (`Content-Type`, `content-length-range` до 10 МБ). |
 | `grader.tf` | Lambda оцінювача з того самого ECR-образу (`image_config.command = ["app.grader.lambda_handler.handler"]`), **без `vpc_config`** (має інтернет без NAT), 256 MB, timeout 120 s, без reserved concurrency (на нових акаунтах загальний ліміт буває 10 і резерв не застосується; від подвійного оцінювання захищає оренда); env `API_URL` (function URL API), `GRADER_TOKEN`, `GRADER=bedrock`, `GRADER_MODEL=anthropic.claude-haiku-5-5`. Роль: логи + `bedrock-mantle:CreateInference` лише на цю модель; доступу до S3 не треба — матеріали воркер качає за підписаним посиланням від API. Цей самий воркер генерує й тести з матеріалів. EventBridge Scheduler раз на хвилину (у межах безкоштовного ліміту). `aws_budgets_budget` на $1 за Bedrock і AWS Marketplace з e-mail-алертом — перші два бюджети безкоштовні. `GRADER_TOKEN` — `random_password` у state HCP. |
 | `site.tf` | Приватний S3-бакет (block public access, без website hosting); CloudFront distribution з Origin Access Control; bucket policy дозволяє `s3:GetObject` лише цій distribution; `default_root_object = "index.html"`; 403/404 → `/index.html` з кодом 200 для SPA-маршрутів; `PriceClass_100`; сертифікат CloudFront за замовчуванням. |
@@ -905,8 +940,9 @@ Repository variables GitHub (не secrets — у них немає секрет�
 | `0008-ai-grading-outside-the-vpc.md` | Оцінювач — окрема Lambda поза VPC з Claude Haiku 5.5 на Bedrock; без NAT і endpoints; оренда завдань і «без повторів» як захист від витрат. |
 | `0009-homework-photos-presigned.md` | Фото ДЗ напряму в S3 через presigned URL, підписані локально; локально — том і HMAC-посилання замість MinIO. |
 | `0010-quiz-generation-from-materials.md` | Тести з матеріалів генерує той самий воркер поза VPC; результат — лише чернетка, яку перевіряє репетитор; ліміт 3 незавершені генерації. |
+| `0011-tariffs-and-liqpay.md` | Безкоштовний і Pro; LiqPay, бо форму можна підписати без мережі; лише перегляд понад ліміт; скасування через воркер. |
 
-Файли `0001`–`0006` ще не написані; `0007`–`0010` є.
+Файли `0001`–`0006` ще не написані; `0007`–`0011` є.
 
 ## README.md
 

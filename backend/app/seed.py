@@ -39,6 +39,7 @@ from app.models import (
     Role,
     Student,
     StudentLink,
+    Subscription,
 )
 from app.schemas.quiz import AnswerIn, QuizIn
 from app.services import clock, quizzes, users
@@ -156,6 +157,7 @@ def seed(session: Session, tutor_sub: str = DEFAULT_SUB) -> dict[str, int]:
         Lesson,
         Material,
         Student,
+        Subscription,  # the demo tutor starts on the Free plan
     ):
         session.execute(delete(model).where(model.tutor_id == tutor.id))
 

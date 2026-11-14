@@ -420,3 +420,28 @@ export interface HomeworkAssignmentIn {
   due_at?: string | null;
   material_ids: string[];
 }
+
+// ---------- billing ----------
+
+export type BillingPeriod = "month" | "year";
+
+export interface Plan {
+  plan: "free" | "pro";
+  pro_until: string | null;
+  period: BillingPeriod | null;
+  subscription_status: "pending" | "active" | "cancelled" | null;
+  cancel_pending: boolean;
+  active_students: number;
+  free_student_limit: number;
+  read_only: boolean;
+  prices: Record<BillingPeriod, number>;
+  billing_mode: "liqpay" | "demo" | "disabled";
+}
+
+export interface CheckoutForm {
+  mode: "liqpay" | "demo";
+  url: string;
+  data: string;
+  signature: string;
+  order_id: string;
+}

@@ -235,7 +235,9 @@ function GenerateDialog({
       setError(
         e instanceof ApiError && e.detail === "too_many_generations"
           ? "Уже генерується 3 тести — зачекайте хвилину."
-          : "Не вдалося запустити генерацію"
+          : e instanceof ApiError && e.status === 402
+            ? String(e.detail)
+            : "Не вдалося запустити генерацію"
       );
     } finally {
       setBusy(false);

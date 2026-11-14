@@ -10,6 +10,14 @@ export class ApiError extends Error {
   }
 }
 
+/** 402 = the tutor's plan does not allow it: show a sentence, not a code. */
+export const PLAN_MESSAGES: Record<string, string> = {
+  plan_read_only:
+    "Кабінет лише для перегляду: Pro закінчився, а учнів більше, ніж дозволяє безкоштовний тариф. Оформіть Pro або заархівуйте зайвих учнів.",
+  plan_limit: "На безкоштовному тарифі — до 3 активних учнів. Оформіть Pro, щоб додати більше.",
+  pro_required: "Це доступно в тарифі Pro.",
+};
+
 let _signinRedirect: (() => Promise<void>) | null = null;
 
 /** Реєструє функцію повторного входу; викликається з App при ініціалізації auth. */
@@ -40,6 +48,9 @@ export async function apiFetch<T>(token: string, path: string, init?: RequestIni
     }
     if (res.status === 401 && _signinRedirect) {
       void _signinRedirect();
+    }
+    if (res.status === 402 && typeof detail === "string" && PLAN_MESSAGES[detail]) {
+      detail = PLAN_MESSAGES[detail];
     }
     throw new ApiError(res.status, detail);
   }

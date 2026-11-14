@@ -17,6 +17,8 @@ import { QuizzesPage } from "./pages/tutor/QuizzesPage";
 import { QuizAssignmentPage } from "./pages/tutor/QuizAssignmentPage";
 import { QuizEditPage } from "./pages/tutor/QuizEditPage";
 import { MaterialsPage } from "./pages/tutor/MaterialsPage";
+import { BillingPage } from "./pages/tutor/BillingPage";
+import { DemoCheckoutPage } from "./pages/tutor/DemoCheckoutPage";
 import { HomeworkAssignmentPage } from "./pages/portal/HomeworkAssignmentPage";
 import { PortalMaterialsPage } from "./pages/portal/PortalMaterialsPage";
 import { PortalHomePage } from "./pages/portal/PortalHomePage";
@@ -85,6 +87,8 @@ function TutorPages({ path }: { path: string }) {
   if (quizEdit) return <QuizEditPage id={quizEdit[1]} />;
   if (assignment) return <QuizAssignmentPage id={assignment[1]} />;
   if (path === "/materials") return <MaterialsPage />;
+  if (path === "/billing") return <BillingPage />;
+  if (path === "/billing/demo-checkout") return <DemoCheckoutPage />;
   return <NotFound />;
 }
 

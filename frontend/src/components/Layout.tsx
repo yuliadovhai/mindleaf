@@ -6,11 +6,13 @@ import { ROLE_LABEL } from "../lib/labels";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Logo } from "./Logo";
+import { PlanBanner } from "./PlanBanner";
 import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
   CreditCard,
+  Crown,
   FolderOpen,
   Home,
   LayoutDashboard,
@@ -37,6 +39,7 @@ const TUTOR_NAV: NavItem[] = [
   { label: "ДЗ", path: "/homework", icon: ClipboardCheck },
   { label: "Тести", path: "/quizzes", icon: ListChecks },
   { label: "Матеріали", path: "/materials", icon: FolderOpen },
+  { label: "Тариф", path: "/billing", icon: Crown },
 ];
 
 const STUDENT_NAV: NavItem[] = [
@@ -139,6 +142,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { me } = useMe();
 
   return (
     <div className="min-h-screen">
@@ -174,7 +178,10 @@ export function Layout({ children }: LayoutProps) {
       </button>
 
       <main className="md:pl-60">
-        <div className="container mx-auto px-4 py-6">{children}</div>
+        <div className="container mx-auto px-4 py-6">
+          {me.role === "tutor" && <PlanBanner />}
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
@@ -136,3 +136,27 @@ def test_seed_material_and_homework_assignment(db, as_user):
     assert [(h["title"], len(h["materials"])) for h in homework] == [
         ("Дроби: вправи 20–25", 1)
     ]
+
+
+@pytest.mark.real_billing
+def test_seed_resets_the_demo_tutor_to_free(db):
+    from app.services import billing
+
+    seed(db)
+    tutor = db.scalars(select(User).where(User.cognito_sub == "local-dev")).one()
+    db.add(
+        seed_module.Subscription(
+            tutor_id=tutor.id,
+            order_id="tc-x",
+            period="month",
+            amount=19900,
+            status="active",
+            paid_until=clock.now() + timedelta(days=30),
+        )
+    )
+    db.flush()
+    assert billing.is_pro(db, tutor.id)
+
+    seed(db)
+
+    assert not billing.is_pro(db, tutor.id)
