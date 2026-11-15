@@ -34,7 +34,9 @@ export function PaymentRows({
           <>
             <span
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                r.payment ? "bg-[#E6F8EF] text-emerald-600" : "bg-muted text-muted-foreground"
+                r.payment
+                  ? "bg-[#E6F8EF] text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {r.payment ? <Wallet className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
@@ -47,7 +49,7 @@ export function PaymentRows({
             </span>
             <span className="shrink-0 text-right">
               <span
-                className={`block font-semibold ${r.amount > 0 ? "text-emerald-700" : "text-foreground"}`}
+                className={`block font-semibold ${r.amount > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}
               >
                 {r.amount > 0 ? "+" : "−"}
                 {formatMoney(Math.abs(r.amount))}

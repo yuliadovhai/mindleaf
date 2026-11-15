@@ -6,7 +6,8 @@ import { ApiError } from "../api/client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { GraduationCap, KeyRound } from "lucide-react";
+import { useTheme } from "../lib/theme";
+import { GraduationCap, KeyRound, Moon, Sun } from "lucide-react";
 
 const REDEEM_ERRORS: Record<string, string> = {
   invite_not_found: "Код не знайдено, він уже використаний або прострочений.",
@@ -22,6 +23,7 @@ export function RoleChoicePage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { theme, toggle } = useTheme();
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -38,7 +40,14 @@ export function RoleChoicePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-muted/30 p-4">
+      <button
+        onClick={toggle}
+        aria-label={theme === "dark" ? "Увімкнути світлу тему" : "Увімкнути темну тему"}
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+      >
+        {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
       <div className="w-full max-w-md space-y-6 p-8 bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
         <div className="text-center space-y-3">
           <div className="flex justify-center">

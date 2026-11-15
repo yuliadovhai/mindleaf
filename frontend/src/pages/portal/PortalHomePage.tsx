@@ -72,7 +72,7 @@ export function PortalHomePage() {
                 {s.tutor_name && <p className="text-muted-foreground">Репетитор: {s.tutor_name}</p>}
                 {s.balance !== null && (
                   <p
-                    className={`text-base font-semibold ${s.balance < 0 ? "text-destructive" : "text-green-700"}`}
+                    className={`text-base font-semibold ${s.balance < 0 ? "text-destructive" : "text-green-700 dark:text-green-400"}`}
                   >
                     {s.balance < 0
                       ? `Борг: ${formatMoney(-s.balance)}`

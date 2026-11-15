@@ -9,7 +9,7 @@ export function PlanBanner({ plan }: { plan: Plan | null }) {
 
   if (!plan?.read_only || path.startsWith("/billing")) return null;
   return (
-    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
       <span className="flex items-start gap-2">
         <Lock className="mt-0.5 h-4 w-4 shrink-0" />
         Кабінет лише для перегляду: Pro закінчився, а активних учнів {plan.active_students} (на

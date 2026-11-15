@@ -1,7 +1,8 @@
 import { DEV_LOGIN, devLogin, useSession } from "../auth/session";
 import { Button } from "../components/ui/button";
 import { Logo } from "../components/Logo";
-import { GraduationCap, UserRound, Users } from "lucide-react";
+import { useTheme } from "../lib/theme";
+import { GraduationCap, Moon, Sun, UserRound, Users } from "lucide-react";
 
 /** Demo accounts created by `make seed`. */
 const DEMO_ACCOUNTS = [
@@ -27,6 +28,7 @@ const DEMO_ACCOUNTS = [
 
 export function LoginPage() {
   const session = useSession();
+  const { theme, toggle } = useTheme();
 
   if (session.isLoading) {
     return (
@@ -37,7 +39,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-muted/30 p-4">
+      <button
+        onClick={toggle}
+        aria-label={theme === "dark" ? "Увімкнути світлу тему" : "Увімкнути темну тему"}
+        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+      >
+        {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
       <div className="w-full max-w-md space-y-6 p-8 bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
         <div className="text-center space-y-3">
           <h1 className="flex justify-center">

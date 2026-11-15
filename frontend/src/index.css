@@ -33,6 +33,44 @@
     --ring: 246 89% 67%;
 
     --radius: 1rem;
+
+    --logo-ink: #2a1a4e;
+    --leaf-dark: #5b3db5;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --background: 248 30% 9%;
+    --foreground: 248 30% 94%;
+
+    --card: 248 25% 13%;
+    --card-foreground: 248 30% 94%;
+
+    --popover: 248 25% 13%;
+    --popover-foreground: 248 30% 94%;
+
+    --primary: 246 89% 70%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 248 22% 20%;
+    --secondary-foreground: 248 30% 94%;
+
+    --muted: 248 22% 17%;
+    --muted-foreground: 248 12% 65%;
+
+    --accent: 248 30% 22%;
+    --accent-foreground: 248 30% 94%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 248 20% 22%;
+    --input: 248 20% 22%;
+    --ring: 246 89% 70%;
+
+    --logo-ink: #c8c0f8;
+    --leaf-dark: #8b6ee8;
   }
 
   * {

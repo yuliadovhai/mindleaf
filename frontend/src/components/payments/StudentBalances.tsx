@@ -75,7 +75,7 @@ export function StudentBalances() {
                       s.balance < 0
                         ? "text-destructive"
                         : s.balance > 0
-                          ? "text-emerald-600"
+                          ? "text-emerald-600 dark:text-emerald-400"
                           : "text-muted-foreground"
                     }`}
                   >

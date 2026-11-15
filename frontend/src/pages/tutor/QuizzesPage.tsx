@@ -87,7 +87,7 @@ export function QuizzesPage() {
               return (
                 <div
                   key={q.id}
-                  className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-4 py-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)] ${draft ? "border-amber-300 bg-amber-50" : "border-border bg-card"}`}
+                  className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-4 py-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)] ${draft ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100" : "border-border bg-card"}`}
                 >
                   <span>
                     <span className="flex items-center gap-2 font-medium">

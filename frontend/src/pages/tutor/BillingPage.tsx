@@ -105,7 +105,7 @@ export function BillingPage() {
           </p>
         )}
         {plan.read_only && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               Зараз кабінет лише для перегляду: активних учнів {plan.active_students}, а
@@ -181,7 +181,7 @@ export function BillingPage() {
                 <CardContent className="space-y-2">
                   {FREE_FEATURES.map((f) => (
                     <p key={f} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-600" />
+                      <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                       {f}
                     </p>
                   ))}
@@ -210,7 +210,7 @@ export function BillingPage() {
                   <div className="space-y-2">
                     {PRO_FEATURES.map((f) => (
                       <p key={f} className="flex items-center gap-2 text-sm">
-                        <Check className="h-4 w-4 text-green-600" />
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                         {f}
                       </p>
                     ))}

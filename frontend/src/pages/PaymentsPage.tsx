@@ -105,7 +105,9 @@ export function PaymentsPage() {
             {!loading && payments.length > 0 && (
               <p className="text-sm text-muted-foreground">
                 {plural(payments.length, ["оплата", "оплати", "оплат"])} на{" "}
-                <span className="font-semibold text-emerald-700">{formatMoney(total)}</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                  {formatMoney(total)}
+                </span>
               </p>
             )}
           </div>
