@@ -49,7 +49,7 @@ export function DemoCheckoutPage() {
           </p>
           <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
             <p>{params.description ?? "Pro"}</p>
-            <p className="text-lg font-semibold">{params.amount ?? "?"} ₴</p>
+            <p className="text-lg font-semibold">{params.amount ?? "?"} грн</p>
             <p className="text-xs text-muted-foreground">
               {params.subscribe_periodicity === "year" ? "щороку" : "щомісяця"} · замовлення{" "}
               {orderId.slice(0, 11)}…

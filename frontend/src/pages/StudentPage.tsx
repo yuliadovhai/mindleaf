@@ -1,77 +1,44 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "../auth/session";
 import { getStudent, updateStudent } from "../api/students";
-import { listLessons, deleteLesson } from "../api/lessons";
+import { listLessons } from "../api/lessons";
 import type { Student, Lesson } from "../api/types";
 import { Layout } from "../components/Layout";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { StudentForm } from "../components/StudentForm";
 import { LessonForm } from "../components/LessonForm";
-import { LessonStatusForm } from "../components/LessonStatusForm";
 import { StudentAccessPanel } from "../components/StudentAccessPanel";
 import { StudentHomeworkTab } from "../components/student/StudentHomeworkTab";
 import { StudentQuizzesTab } from "../components/student/StudentQuizzesTab";
 import { StudentMaterialsTab } from "../components/student/StudentMaterialsTab";
-import { LessonStatusBadge } from "../components/LessonStatusBadge";
+import { LessonList } from "../components/lessons/LessonList";
+import { LessonDialog } from "../components/lessons/LessonDialog";
+import { EmptyState } from "../components/common/EmptyState";
+import { SegmentedTabs } from "../components/common/SegmentedTabs";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
 import { formatMoney } from "../lib/money";
-import { formatDateTime } from "../lib/datetime";
+import { CARD } from "../lib/labels";
 import { useRouter } from "../lib/router";
 import {
   ArrowLeft,
-  Pencil,
-  Plus,
-  Trash2,
-  RefreshCw,
-  Phone,
-  MessageSquare,
-  User,
   CalendarDays,
+  ChevronRight,
+  ClipboardCheck,
+  FolderOpen,
+  KeyRound,
+  ListChecks,
+  MessageSquare,
+  Pencil,
+  Phone,
+  Plus,
+  User,
 } from "lucide-react";
-import type React from "react";
-
-function EmptyState({
-  icon: Icon,
-  text,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  text: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
-        <Icon className="h-6 w-6 text-primary/60" />
-      </div>
-      <p className="text-sm text-muted-foreground">{text}</p>
-    </div>
-  );
-}
-
-interface StudentPageProps {
-  id: string;
-}
 
 type Tab = "lessons" | "homework" | "quizzes" | "materials" | "access";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "lessons", label: "Заняття" },
-  { id: "homework", label: "ДЗ" },
-  { id: "quizzes", label: "Тести" },
-  { id: "materials", label: "Матеріали" },
-  { id: "access", label: "Доступ учня й батьків" },
-];
-
-export function StudentPage({ id }: StudentPageProps) {
+export function StudentPage({ id }: { id: string }) {
   const { token } = useSession();
   const { navigate } = useRouter();
 
@@ -82,17 +49,19 @@ export function StudentPage({ id }: StudentPageProps) {
   const [error, setError] = useState("");
 
   const [editStudentOpen, setEditStudentOpen] = useState(false);
-  const [lessonFormOpen, setLessonFormOpen] = useState(false);
-  const [editLesson, setEditLesson] = useState<Lesson | undefined>();
-  const [statusLesson, setStatusLesson] = useState<Lesson | undefined>();
+  const [lessonForm, setLessonForm] = useState<{ initial?: Lesson } | null>(null);
+  const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
 
-  const loadStudent = useCallback(() => {
-    return getStudent(token, id).then(setStudent);
-  }, [token, id]);
-
-  const loadLessons = useCallback(() => {
-    return listLessons(token, { student_id: id }).then(setLessons);
-  }, [token, id]);
+  const loadStudent = useCallback(() => getStudent(token, id).then(setStudent), [token, id]);
+  // Newest first: the tutor looks at what happened last and what comes next.
+  const loadLessons = useCallback(
+    () => listLessons(token, { student_id: id }).then((list) => setLessons([...list].reverse())),
+    [token, id]
+  );
+  const reloadAll = useCallback(() => {
+    void loadLessons();
+    void loadStudent();
+  }, [loadLessons, loadStudent]);
 
   useEffect(() => {
     setLoading(true);
@@ -101,17 +70,6 @@ export function StudentPage({ id }: StudentPageProps) {
       .catch(() => setError("Не вдалося завантажити дані учня"))
       .finally(() => setLoading(false));
   }, [loadStudent, loadLessons]);
-
-  const handleDeleteLesson = async (lesson: Lesson) => {
-    if (!confirm("Видалити заняття?")) return;
-    try {
-      await deleteLesson(token, lesson.id);
-      await loadLessons();
-      await loadStudent();
-    } catch {
-      alert("Помилка видалення");
-    }
-  };
 
   const handleUnarchive = async () => {
     if (!student) return;
@@ -125,218 +83,141 @@ export function StudentPage({ id }: StudentPageProps) {
         <LoadingSpinner />
       </Layout>
     );
-  if (error)
+  if (error || !student)
     return (
       <Layout>
-        <ErrorMessage message={error} />
+        <ErrorMessage message={error || "Учня не знайдено"} />
       </Layout>
     );
-  if (!student) return null;
+
+  const contacts = [
+    student.phone && { icon: Phone, text: student.phone },
+    student.telegram && { icon: MessageSquare, text: student.telegram },
+    student.parent_name && {
+      icon: User,
+      text: `${student.parent_name}${student.parent_phone ? ` · ${student.parent_phone}` : ""}`,
+    },
+  ].filter(Boolean) as { icon: typeof Phone; text: string }[];
+
+  const balanceTone =
+    student.balance < 0
+      ? "text-destructive"
+      : student.balance > 0
+        ? "text-emerald-600"
+        : "text-foreground";
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/students")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{student.full_name}</h1>
-                {student.archived && <Badge variant="muted">архів</Badge>}
-              </div>
-              {student.subject && (
-                <p className="text-muted-foreground text-sm">{student.subject}</p>
-              )}
+      <div className="space-y-5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-3 gap-1.5"
+          onClick={() => navigate("/students")}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Учні
+        </Button>
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">{student.full_name}</h1>
+              {student.archived && <Badge variant="muted">в архіві</Badge>}
             </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {[student.subject, `${formatMoney(student.default_price)} за заняття`]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-2">
             {student.archived && (
-              <Button variant="outline" size="sm" onClick={() => void handleUnarchive()}>
-                Розархівувати
+              <Button variant="outline" onClick={() => void handleUnarchive()}>
+                Повернути з архіву
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditStudentOpen(true)}
-              className="gap-1.5"
-            >
+            <Button variant="outline" onClick={() => setEditStudentOpen(true)} className="gap-1.5">
               <Pencil className="h-4 w-4" />
               Редагувати
             </Button>
           </div>
         </div>
 
-        {/* Info + Balance */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="sm:col-span-2 rounded-2xl border border-border bg-card p-4 space-y-2 text-sm shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
-            {student.phone && (
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{student.phone}</span>
-              </div>
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_260px]">
+          <div className={`${CARD} space-y-2 p-4 text-sm`}>
+            {contacts.length === 0 && !student.notes && (
+              <p className="text-muted-foreground">Контактів ще немає.</p>
             )}
-            {student.telegram && (
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span>{student.telegram}</span>
+            {contacts.map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2">
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{text}</span>
               </div>
-            )}
-            {student.parent_name && (
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  {student.parent_name}
-                  {student.parent_phone && ` · ${student.parent_phone}`}
-                </span>
-              </div>
-            )}
+            ))}
             {student.notes && (
-              <p className="text-muted-foreground whitespace-pre-line">{student.notes}</p>
+              <p className="whitespace-pre-line text-muted-foreground">{student.notes}</p>
             )}
           </div>
 
-          <div
-            className={`rounded-2xl border p-4 flex flex-col items-center justify-center shadow-[0_4px_20px_rgba(109,93,246,0.06)] ${
-              student.balance < 0
-                ? "bg-destructive/5 border-destructive/30"
-                : student.balance > 0
-                  ? "bg-green-50 border-green-200"
-                  : "bg-card"
-            }`}
+          <button
+            onClick={() => navigate(`/payments/students/${student.id}`)}
+            className={`${CARD} flex items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-accent/30`}
           >
-            <p className="text-sm text-muted-foreground mb-1">Баланс</p>
-            <p
-              className={`text-3xl font-bold ${
-                student.balance < 0
-                  ? "text-destructive"
-                  : student.balance > 0
-                    ? "text-green-600"
-                    : ""
-              }`}
-            >
-              {formatMoney(student.balance)}
-            </p>
-            {student.balance < 0 && (
-              <p className="text-xs text-destructive mt-1">борг {formatMoney(-student.balance)}</p>
-            )}
-            <Button
-              variant="link"
-              size="sm"
-              className="mt-1 h-auto p-0"
-              onClick={() => navigate(`/payments/students/${student.id}`)}
-            >
-              Оплати й історія →
-            </Button>
-          </div>
+            <span>
+              <span className="block text-sm text-muted-foreground">
+                {student.balance < 0 ? "Борг" : "Баланс"}
+              </span>
+              <span className={`block text-2xl font-bold ${balanceTone}`}>
+                {formatMoney(Math.abs(student.balance))}
+              </span>
+              <span className="block text-xs text-primary">Оплати й історія</span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1 rounded-full bg-muted p-1 w-fit">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={`px-4 py-1.5 text-sm transition-colors rounded-full ${
-                tab === t.id
-                  ? "bg-white shadow-sm text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-              {t.id === "lessons" ? ` (${lessons.length})` : ""}
-            </button>
-          ))}
-        </div>
+        <SegmentedTabs
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: "lessons", label: "Заняття", icon: CalendarDays },
+            { value: "homework", label: "ДЗ", icon: ClipboardCheck },
+            { value: "quizzes", label: "Тести", icon: ListChecks },
+            { value: "materials", label: "Матеріали", icon: FolderOpen },
+            { value: "access", label: "Доступ", icon: KeyRound },
+          ]}
+        />
 
         {tab === "access" && <StudentAccessPanel studentId={id} />}
         {tab === "homework" && <StudentHomeworkTab studentId={id} archived={student.archived} />}
         {tab === "quizzes" && <StudentQuizzesTab studentId={id} archived={student.archived} />}
         {tab === "materials" && <StudentMaterialsTab studentId={id} />}
 
-        {/* Lessons tab */}
         {tab === "lessons" && (
           <div className="space-y-3">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                Натисніть на заняття, щоб відмітити чи змінити його.
+              </p>
               <Button
-                size="sm"
-                className="gap-1.5"
-                onClick={() => {
-                  setEditLesson(undefined);
-                  setLessonFormOpen(true);
-                }}
+                className="shrink-0 gap-1.5"
+                onClick={() => setLessonForm({})}
                 disabled={student.archived}
               >
                 <Plus className="h-4 w-4" />
-                Додати заняття
+                Заняття
               </Button>
             </div>
             {lessons.length === 0 ? (
               <EmptyState icon={CalendarDays} text="Занять поки немає" />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Дата і час</TableHead>
-                    <TableHead>Тривалість</TableHead>
-                    <TableHead className="text-right">Ціна</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead>Тема</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lessons.map((l) => (
-                    <TableRow key={l.id}>
-                      <TableCell className="text-sm">{formatDateTime(l.starts_at)}</TableCell>
-                      <TableCell className="text-sm">{l.duration_minutes} хв</TableCell>
-                      <TableCell className="text-right text-sm">{formatMoney(l.price)}</TableCell>
-                      <TableCell>
-                        <LessonStatusBadge status={l.status} />
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {l.topic ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setStatusLesson(l);
-                            }}
-                            title="Змінити статус"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditLesson(l);
-                              setLessonFormOpen(true);
-                            }}
-                            title="Редагувати"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => void handleDeleteLesson(l)}
-                            title="Видалити"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <LessonList
+                lessons={lessons}
+                hideStudent
+                onOpen={setOpenLesson}
+                onChanged={reloadAll}
+              />
             )}
           </div>
         )}
@@ -344,7 +225,7 @@ export function StudentPage({ id }: StudentPageProps) {
 
       {editStudentOpen && (
         <StudentForm
-          open={editStudentOpen}
+          open
           onClose={() => setEditStudentOpen(false)}
           onSaved={() => {
             setEditStudentOpen(false);
@@ -354,34 +235,28 @@ export function StudentPage({ id }: StudentPageProps) {
         />
       )}
 
-      {lessonFormOpen && (
+      {lessonForm && (
         <LessonForm
-          open={lessonFormOpen}
-          onClose={() => {
-            setLessonFormOpen(false);
-            setEditLesson(undefined);
-          }}
+          open
+          onClose={() => setLessonForm(null)}
           onSaved={() => {
-            setLessonFormOpen(false);
-            setEditLesson(undefined);
-            void loadLessons();
-            void loadStudent();
+            setLessonForm(null);
+            reloadAll();
           }}
-          initial={editLesson}
+          initial={lessonForm.initial}
           defaultStudentId={id}
         />
       )}
 
-      {statusLesson && (
-        <LessonStatusForm
-          open={!!statusLesson}
-          onClose={() => setStatusLesson(undefined)}
-          onSaved={() => {
-            setStatusLesson(undefined);
-            void loadLessons();
-            void loadStudent();
+      {openLesson && (
+        <LessonDialog
+          lesson={openLesson}
+          onClose={() => setOpenLesson(null)}
+          onChanged={reloadAll}
+          onEdit={(lesson) => {
+            setOpenLesson(null);
+            setLessonForm({ initial: lesson });
           }}
-          lesson={statusLesson}
         />
       )}
     </Layout>

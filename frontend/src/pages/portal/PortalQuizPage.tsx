@@ -70,8 +70,8 @@ export function PortalQuizPage({ id }: { id: string }) {
   };
 
   return (
-    <Layout>
-      <div className="space-y-6 max-w-3xl">
+    <Layout width="narrow">
+      <div className="space-y-6">
         <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate("/quizzes")}>
           <ArrowLeft className="h-4 w-4" />
           Усі тести

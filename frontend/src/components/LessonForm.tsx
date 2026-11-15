@@ -26,6 +26,8 @@ interface LessonFormProps {
   onSaved: (lesson: Lesson) => void;
   initial?: Lesson;
   defaultStudentId?: string;
+  /** "YYYY-MM-DDTHH:MM" in Kyiv, e.g. from a click on an empty calendar slot. */
+  defaultStartsAt?: string;
 }
 
 const STATUS_OPTIONS: { value: LessonStatus; label: string }[] = [
@@ -35,12 +37,21 @@ const STATUS_OPTIONS: { value: LessonStatus; label: string }[] = [
   { value: "missed", label: "Пропуск" },
 ];
 
-export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }: LessonFormProps) {
+export function LessonForm({
+  open,
+  onClose,
+  onSaved,
+  initial,
+  defaultStudentId,
+  defaultStartsAt,
+}: LessonFormProps) {
   const { token } = useSession();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [studentId, setStudentId] = useState(initial?.student_id ?? defaultStudentId ?? "");
-  const [startsAt, setStartsAt] = useState(initial ? isoToLocalInput(initial.starts_at) : "");
+  const [startsAt, setStartsAt] = useState(
+    initial ? isoToLocalInput(initial.starts_at) : (defaultStartsAt ?? "")
+  );
   const [duration, setDuration] = useState(String(initial?.duration_minutes ?? 60));
   const [priceInput, setPriceInput] = useState(initial ? kopecksToInput(initial.price) : "");
   const [priceEdited, setPriceEdited] = useState(false);
@@ -170,7 +181,7 @@ export function LessonForm({ open, onClose, onSaved, initial, defaultStudentId }
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="lf-price">Ціна (₴) *</Label>
+              <Label htmlFor="lf-price">Ціна, грн *</Label>
               <Input
                 id="lf-price"
                 type="number"

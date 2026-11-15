@@ -46,8 +46,9 @@ export function HomeworkAssignmentRow({
           <Badge variant="success">Перевірено{a.grade !== null ? ` · ${a.grade}/12` : ""}</Badge>
         )}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
+          className="gap-1.5 text-muted-foreground"
           aria-label="Видалити"
           onClick={async () => {
             if (!window.confirm(`Видалити «${a.title}» разом із відповіддю?`)) return;
@@ -56,6 +57,7 @@ export function HomeworkAssignmentRow({
           }}
         >
           <Trash2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Видалити</span>
         </Button>
       </span>
     </div>

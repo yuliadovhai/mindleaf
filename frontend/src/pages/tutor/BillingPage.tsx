@@ -176,7 +176,7 @@ export function BillingPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Безкоштовний</CardTitle>
-                  <p className="text-3xl font-bold">0 ₴</p>
+                  <p className="text-3xl font-bold">0 грн</p>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {FREE_FEATURES.map((f) => (

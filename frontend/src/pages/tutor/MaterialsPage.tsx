@@ -32,7 +32,9 @@ import {
 import { formatDateTime } from "../../lib/datetime";
 import { useLoad } from "../../lib/useLoad";
 import { useRouter } from "../../lib/router";
-import { Download, FileUp, Share2, Sparkles, Trash2 } from "lucide-react";
+import { Download, FileUp, FolderOpen, Share2, Sparkles, Trash2 } from "lucide-react";
+import { LearningHeader } from "../../components/LearningHeader";
+import { EmptyState } from "../../components/common/EmptyState";
 
 const TYPE_LABEL: Record<string, string> = {
   "application/pdf": "PDF",
@@ -48,7 +50,15 @@ const GENERATION_LABEL = {
   failed: "Не вдалося",
 } as const;
 
-function UploadForm({ onUploaded }: { onUploaded: () => void }) {
+function UploadDialog({
+  open,
+  onClose,
+  onUploaded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onUploaded: () => void;
+}) {
   const { token } = useSession();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -67,6 +77,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       setTitle("");
       setDescription("");
       onUploaded();
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити");
     } finally {
@@ -75,60 +86,68 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   };
 
   return (
-    <form
-      onSubmit={(e) => void submit(e)}
-      className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-[0_4px_20px_rgba(109,93,246,0.06)]"
-    >
-      <h2 className="font-semibold flex items-center gap-2">
-        <FileUp className="h-5 w-5" />
-        Завантажити матеріал
-      </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor="mt-file">Файл (PDF, JPEG, PNG, TXT, MD, до 10 МБ)</Label>
-          <Input
-            id="mt-file"
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.txt,.md"
-            onChange={(e) => {
-              const picked = e.target.files?.[0] ?? null;
-              setError("");
-              if (picked && (!materialType(picked) || picked.size > 10 * 1024 * 1024)) {
-                setError("Підтримуються PDF, JPEG, PNG, TXT і MD до 10 МБ");
-                setFile(null);
-                return;
-              }
-              setFile(picked);
-              if (picked && !title) setTitle(picked.name.replace(/\.[^.]+$/, ""));
-            }}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="mt-title">Назва *</Label>
-          <Input
-            id="mt-title"
-            value={title}
-            maxLength={200}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="mt-desc">Опис</Label>
-        <Textarea
-          id="mt-desc"
-          rows={2}
-          maxLength={2000}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={busy || !file || !title.trim()}>
-        {busy ? "Завантажую…" : "Завантажити"}
-      </Button>
-    </form>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Новий матеріал</DialogTitle>
+          <DialogDescription>
+            Спочатку його бачите лише ви. Учням відкриєте доступ кнопкою «Доступ».
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(e) => void submit(e)} className="space-y-3">
+          <div className="grid gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="mt-file">Файл (PDF, JPEG, PNG, TXT, MD, до 10 МБ)</Label>
+              <Input
+                id="mt-file"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.txt,.md"
+                onChange={(e) => {
+                  const picked = e.target.files?.[0] ?? null;
+                  setError("");
+                  if (picked && (!materialType(picked) || picked.size > 10 * 1024 * 1024)) {
+                    setError("Підтримуються PDF, JPEG, PNG, TXT і MD до 10 МБ");
+                    setFile(null);
+                    return;
+                  }
+                  setFile(picked);
+                  if (picked && !title) setTitle(picked.name.replace(/\.[^.]+$/, ""));
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="mt-title">Назва *</Label>
+              <Input
+                id="mt-title"
+                value={title}
+                maxLength={200}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="mt-desc">Опис</Label>
+            <Textarea
+              id="mt-desc"
+              rows={2}
+              maxLength={2000}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Скасувати
+            </Button>
+            <Button type="submit" disabled={busy || !file || !title.trim()}>
+              {busy ? "Завантажую…" : "Завантажити"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -329,6 +348,7 @@ export function MaterialsPage() {
   const { token } = useSession();
   const [sharing, setSharing] = useState<Material | null>(null);
   const [generating, setGenerating] = useState<Material | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     const [materials, generations] = await Promise.all([
@@ -355,9 +375,16 @@ export function MaterialsPage() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Матеріали</h1>
-        <UploadForm onUploaded={() => void reload()} />
+      <div className="space-y-5">
+        <LearningHeader
+          section="materials"
+          actions={
+            <Button className="gap-1.5" onClick={() => setUploading(true)}>
+              <FileUp className="h-4 w-4" />
+              Завантажити
+            </Button>
+          }
+        />
         {loading && <LoadingSpinner />}
         {error && <ErrorMessage message={error} />}
 
@@ -377,7 +404,15 @@ export function MaterialsPage() {
           <section className="space-y-2">
             <h2 className="text-lg font-semibold">Бібліотека</h2>
             {data.materials.length === 0 && (
-              <p className="text-sm text-muted-foreground">Матеріалів ще немає.</p>
+              <EmptyState
+                icon={FolderOpen}
+                text="Матеріалів ще немає. Завантажте PDF, фото чи текст."
+                action={
+                  <Button variant="outline" onClick={() => setUploading(true)}>
+                    Завантажити перший
+                  </Button>
+                }
+              />
             )}
             {data.materials.map((m) => (
               <div
@@ -414,12 +449,14 @@ export function MaterialsPage() {
                       Згенерувати тест
                     </Button>
                     <Button
-                      size="icon"
+                      size="sm"
                       variant="ghost"
+                      className="gap-1.5 text-muted-foreground"
                       aria-label="Видалити"
                       onClick={() => void remove(m)}
                     >
                       <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Видалити</span>
                     </Button>
                   </div>
                 </div>
@@ -439,6 +476,11 @@ export function MaterialsPage() {
           </section>
         )}
       </div>
+      <UploadDialog
+        open={uploading}
+        onClose={() => setUploading(false)}
+        onUploaded={() => void reload()}
+      />
       <ShareDialog
         material={sharing}
         onClose={() => setSharing(null)}

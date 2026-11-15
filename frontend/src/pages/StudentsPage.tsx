@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import type React from "react";
 import { useSession } from "../auth/session";
 import { listStudents, archiveStudent } from "../api/students";
 import type { Student } from "../api/types";
@@ -9,33 +8,12 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { StudentForm } from "../components/StudentForm";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
+import { PageHeader } from "../components/common/PageHeader";
+import { EmptyState } from "../components/common/EmptyState";
+import { SegmentedTabs } from "../components/common/SegmentedTabs";
+import { CARD } from "../lib/labels";
 import { useRouter } from "../lib/router";
-import { Plus, Archive, Pencil, Eye, Users as UsersIcon } from "lucide-react";
-
-function EmptyState({
-  icon: Icon,
-  text,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  text: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
-        <Icon className="h-6 w-6 text-primary/60" />
-      </div>
-      <p className="text-sm text-muted-foreground">{text}</p>
-    </div>
-  );
-}
+import { Plus, Archive, ChevronRight, Pencil, Users as UsersIcon } from "lucide-react";
 
 export function StudentsPage() {
   const { token } = useSession();
@@ -62,7 +40,7 @@ export function StudentsPage() {
   }, [load]);
 
   const handleArchive = async (student: Student) => {
-    if (!confirm(`Архівувати учня ${student.full_name}?`)) return;
+    if (!confirm(`Перенести ${student.full_name} в архів? Історія збережеться.`)) return;
     try {
       await archiveStudent(token, student.id);
       load();
@@ -90,36 +68,25 @@ export function StudentsPage() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Учні</h1>
-            <p className="text-sm text-muted-foreground">
-              Відкрийте учня, щоб задати ДЗ, призначити тест чи відкрити матеріали. Баланси — в
-              «Оплатах».
-            </p>
-          </div>
-          <Button onClick={openCreate} className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            Додати учня
-          </Button>
-        </div>
+        <PageHeader
+          title="Учні"
+          subtitle="Відкрийте учня, щоб задати ДЗ, призначити тест чи поділитися матеріалом."
+          actions={
+            <Button onClick={openCreate} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Додати учня
+            </Button>
+          }
+        />
 
-        <div className="flex gap-2">
-          <Button
-            variant={!showArchived ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowArchived(false)}
-          >
-            Активні
-          </Button>
-          <Button
-            variant={showArchived ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowArchived(true)}
-          >
-            Архівовані
-          </Button>
-        </div>
+        <SegmentedTabs
+          value={showArchived ? "archived" : "active"}
+          onChange={(v) => setShowArchived(v === "archived")}
+          items={[
+            { value: "active", label: "Активні" },
+            { value: "archived", label: "Архів" },
+          ]}
+        />
 
         {loading ? (
           <LoadingSpinner />
@@ -128,78 +95,73 @@ export function StudentsPage() {
         ) : students.length === 0 ? (
           <EmptyState
             icon={UsersIcon}
-            text={showArchived ? "Архівованих учнів немає" : "Учнів поки немає"}
+            text={showArchived ? "В архіві нікого немає" : "Учнів поки немає"}
+            action={
+              !showArchived && (
+                <Button onClick={openCreate} className="gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  Додати першого учня
+                </Button>
+              )
+            }
           />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ім'я</TableHead>
-                <TableHead>Предмет</TableHead>
-                <TableHead>Контакти</TableHead>
-                <TableHead>Батьки</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {students.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">
-                    <button
-                      className="font-medium hover:underline text-left"
-                      onClick={() => navigate(`/students/${s.id}`)}
+          <ul className={`${CARD} divide-y divide-border/60 overflow-hidden`}>
+            {students.map((s) => (
+              <li
+                key={s.id}
+                className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40"
+                onClick={() => navigate(`/students/${s.id}`)}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary">
+                  {s.full_name
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((part) => part[0])
+                    .join("")}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 font-medium">
+                    <span className="truncate">{s.full_name}</span>
+                    {s.archived && <Badge variant="muted">архів</Badge>}
+                  </span>
+                  <span className="block truncate text-sm text-muted-foreground">
+                    {[s.subject, s.phone ?? s.telegram, s.parent_name && `батьки: ${s.parent_name}`]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </span>
+                </span>
+                <span
+                  className="flex shrink-0 items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground"
+                    onClick={() => openEdit(s)}
+                    aria-label="Редагувати"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    <span className="hidden lg:inline">Редагувати</span>
+                  </Button>
+                  {!s.archived && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hidden gap-1.5 text-muted-foreground sm:inline-flex"
+                      onClick={() => void handleArchive(s)}
+                      aria-label="В архів"
                     >
-                      {s.full_name}
-                    </button>
-                    {s.archived && (
-                      <Badge variant="muted" className="ml-2 text-xs">
-                        архів
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{s.subject ?? "—"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {[s.phone, s.telegram].filter(Boolean).join(" · ") || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {s.parent_name
-                      ? `${s.parent_name}${s.parent_phone ? ` · ${s.parent_phone}` : ""}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate(`/students/${s.id}`)}
-                        title="Відкрити: заняття, ДЗ, тести, матеріали"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEdit(s)}
-                        title="Редагувати"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {!s.archived && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => void handleArchive(s)}
-                          title="Архівувати"
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      <Archive className="h-4 w-4" />
+                      <span className="hidden lg:inline">В архів</span>
+                    </Button>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

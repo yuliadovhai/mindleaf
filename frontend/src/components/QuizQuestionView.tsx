@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import type { AssignmentQuestion, GradedBy } from "../api/types";
+import { CARD } from "../lib/labels";
 import { Badge } from "./ui/badge";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
 
@@ -13,17 +15,20 @@ export function QuizQuestionView({
   question,
   index,
   showReference = false,
+  children,
 }: {
   question: AssignmentQuestion;
   index: number;
   showReference?: boolean;
+  /** Extra controls at the bottom of the card (the tutor's grading). */
+  children?: ReactNode;
 }) {
   const answer = question.answer;
   const selected = new Set(answer?.selected_options ?? []);
   const correct = new Set(question.correct_options ?? []);
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
+    <div className={`${CARD} space-y-3 p-4`}>
       <div className="flex items-start justify-between gap-3">
         <p className="font-medium">
           {index + 1}. {question.prompt}
@@ -57,7 +62,7 @@ export function QuizQuestionView({
 
       {question.kind === "text" && (
         <div className="space-y-2">
-          <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">
+          <p className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm">
             {answer?.text_answer ?? <span className="text-muted-foreground">Без відповіді</span>}
           </p>
           {showReference && question.reference_answer && (
@@ -67,8 +72,13 @@ export function QuizQuestionView({
       )}
 
       {answer?.feedback && <p className="text-sm italic">«{answer.feedback}»</p>}
-      {answer?.graded_by && <Badge variant="outline">Оцінено: {GRADED_BY[answer.graded_by]}</Badge>}
-      {answer && answer.points === null && <Badge variant="secondary">Ще перевіряється</Badge>}
+      <div className="flex flex-wrap items-center gap-2">
+        {answer?.graded_by && (
+          <Badge variant="outline">Оцінено: {GRADED_BY[answer.graded_by]}</Badge>
+        )}
+        {answer && answer.points === null && <Badge variant="warning">Чекає на оцінку</Badge>}
+      </div>
+      {children}
     </div>
   );
 }

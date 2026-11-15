@@ -18,6 +18,7 @@ import { listStudents } from "../api/students";
 import type { Payment, PaymentCreate, PaymentUpdate, PaymentMethod, Student } from "../api/types";
 import { kopecksToInput, parseMoney } from "../lib/money";
 import { isoToLocalInput, localInputToIso } from "../lib/datetime";
+import { Trash2 } from "lucide-react";
 import { ApiError } from "../api/client";
 
 interface PaymentFormProps {
@@ -26,6 +27,8 @@ interface PaymentFormProps {
   onSaved: (payment: Payment) => void;
   initial?: Payment;
   defaultStudentId?: string;
+  /** Shown as "Видалити" when editing; called after the user confirms. */
+  onDelete?: (payment: Payment) => Promise<void>;
 }
 
 const METHOD_OPTIONS: { value: PaymentMethod; label: string }[] = [
@@ -40,6 +43,7 @@ export function PaymentForm({
   onSaved,
   initial,
   defaultStudentId,
+  onDelete,
 }: PaymentFormProps) {
   const { token } = useSession();
 
@@ -137,7 +141,7 @@ export function PaymentForm({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="pf-amount">Сума (₴) *</Label>
+              <Label htmlFor="pf-amount">Сума, грн *</Label>
               <Input
                 id="pf-amount"
                 type="number"
@@ -184,7 +188,30 @@ export function PaymentForm({
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
+          <DialogFooter className="gap-2">
+            {initial && onDelete && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="gap-1.5 text-destructive hover:text-destructive sm:mr-auto"
+                disabled={saving}
+                onClick={async () => {
+                  if (!window.confirm("Видалити цю оплату? Баланс учня зміниться.")) return;
+                  setSaving(true);
+                  try {
+                    await onDelete(initial);
+                    onClose();
+                  } catch {
+                    setError("Не вдалося видалити");
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Видалити
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={onClose}>
               Скасувати
             </Button>

@@ -123,7 +123,7 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="sf-price">Ціна за заняття (₴) *</Label>
+              <Label htmlFor="sf-price">Ціна за заняття, грн *</Label>
               <Input
                 id="sf-price"
                 type="number"

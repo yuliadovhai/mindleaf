@@ -6,8 +6,8 @@ import { formatDateTime } from "../lib/datetime";
 import { CARD } from "../lib/labels";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
+import { Input } from "./ui/input";
+import { Check } from "lucide-react";
 
 function ReviewForm({ item, onSaved }: { item: Homework; onSaved: (h: Homework) => void }) {
   const { token } = useSession();
@@ -34,38 +34,43 @@ function ReviewForm({ item, onSaved }: { item: Homework; onSaved: (h: Homework) 
   };
 
   return (
-    <div className="space-y-2 rounded-xl bg-muted/40 p-3">
-      <div className="space-y-1">
-        <Label htmlFor={`fb-${item.id}`}>Відгук</Label>
-        <Textarea
-          id={`fb-${item.id}`}
-          rows={2}
+    <div className="space-y-2 border-t border-border pt-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          aria-label="Відгук учню"
+          placeholder="Відгук учню (необов'язково)"
           maxLength={2000}
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
+          className="sm:flex-1"
         />
-      </div>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label htmlFor={`gr-${item.id}`}>Оцінка (1–12)</Label>
+        <div className="flex gap-2">
           <select
-            id={`gr-${item.id}`}
-            className="h-10 rounded-md border bg-background px-3 text-sm"
+            aria-label="Оцінка"
+            className="h-10 flex-1 rounded-full border border-input bg-background px-3 text-sm sm:flex-none"
             value={grade}
             onChange={(e) => setGrade(e.target.value)}
           >
-            <option value="">без оцінки</option>
+            <option value="">Оцінка</option>
             {Array.from({ length: 12 }, (_, i) => 12 - i).map((g) => (
               <option key={g} value={g}>
-                {g}
+                {g} з 12
               </option>
             ))}
           </select>
+          <Button
+            className="flex-1 gap-1.5 sm:flex-none"
+            disabled={saving || (!feedback.trim() && !grade)}
+            onClick={() => void save()}
+          >
+            <Check className="h-4 w-4" />
+            {saving ? "Збереження…" : "Перевірено"}
+          </Button>
         </div>
-        <Button disabled={saving || (!feedback.trim() && !grade)} onClick={() => void save()}>
-          {saving ? "Збереження…" : "Перевірено"}
-        </Button>
       </div>
+      {!feedback.trim() && !grade && (
+        <p className="text-xs text-muted-foreground">Поставте оцінку або напишіть відгук.</p>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
@@ -117,7 +122,7 @@ export function SubmissionCard({
               <img
                 src={p.url}
                 alt="Фото відповіді"
-                className="h-24 w-24 rounded-md border object-cover"
+                className="h-24 w-24 rounded-xl border object-cover"
               />
             </a>
           ))}

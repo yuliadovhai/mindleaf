@@ -4,12 +4,11 @@ import { listStudents } from "../../api/students";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { ErrorMessage } from "../ErrorMessage";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { formatMoney } from "../../lib/money";
+import { CARD } from "../../lib/labels";
 import { useLoad } from "../../lib/useLoad";
 import { useRouter } from "../../lib/router";
-import { History } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 /** Every student's balance, debtors first; a row opens their payment history. */
 export function StudentBalances() {
@@ -29,77 +28,68 @@ export function StudentBalances() {
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">Баланси учнів</h2>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-4 text-sm">
           {debt > 0 && (
             <span>
-              Загальний борг:{" "}
+              Борг разом:{" "}
               <span className="font-semibold text-destructive">{formatMoney(debt)}</span>
             </span>
           )}
           <label className="flex items-center gap-1.5 text-muted-foreground">
             <input
               type="checkbox"
+              className="accent-[#6D5DF6]"
               checked={withArchived}
               onChange={() => setWithArchived(!withArchived)}
             />
-            з архівними
+            з архівом
           </label>
         </div>
       </div>
       {loading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} />}
       {data && data.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Учень</TableHead>
-              <TableHead>Предмет</TableHead>
-              <TableHead className="text-right">Ціна заняття</TableHead>
-              <TableHead className="text-right">Баланс</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((s) => (
-              <TableRow
-                key={s.id}
-                className="cursor-pointer"
+        <ul className={`${CARD} divide-y divide-border/60 overflow-hidden`}>
+          {data.map((s) => (
+            <li key={s.id}>
+              <button
                 onClick={() => navigate(`/payments/students/${s.id}`)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
               >
-                <TableCell className="font-medium">
-                  {s.full_name}
-                  {s.archived && (
-                    <Badge variant="muted" className="ml-2 text-xs">
-                      архів
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-muted-foreground">{s.subject ?? "—"}</TableCell>
-                <TableCell className="text-right">{formatMoney(s.default_price)}</TableCell>
-                <TableCell className="text-right">
-                  <span
-                    className={
-                      s.balance < 0
-                        ? "text-destructive font-medium"
-                        : s.balance > 0
-                          ? "text-green-600 font-medium"
-                          : "text-muted-foreground"
-                    }
-                  >
-                    {s.balance < 0 ? `борг ${formatMoney(-s.balance)}` : formatMoney(s.balance)}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 font-medium">
+                    <span className="truncate">{s.full_name}</span>
+                    {s.archived && <Badge variant="muted">архів</Badge>}
                   </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" title="Історія оплат">
-                    <History className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  <span className="block truncate text-sm text-muted-foreground">
+                    {[s.subject, `${formatMoney(s.default_price)} за заняття`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </span>
+                <span className="text-right">
+                  <span
+                    className={`block font-semibold ${
+                      s.balance < 0
+                        ? "text-destructive"
+                        : s.balance > 0
+                          ? "text-emerald-600"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {formatMoney(Math.abs(s.balance))}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {s.balance < 0 ? "борг" : s.balance > 0 ? "передплата" : "розраховано"}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

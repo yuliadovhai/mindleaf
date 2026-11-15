@@ -8,9 +8,11 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { PaymentForm } from "../components/PaymentForm";
 import { StudentBalances } from "../components/payments/StudentBalances";
+import { PaymentRows } from "../components/payments/PaymentRows";
+import { PageHeader } from "../components/common/PageHeader";
+import { EmptyState } from "../components/common/EmptyState";
+import { SegmentedTabs } from "../components/common/SegmentedTabs";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import {
   Select,
   SelectContent,
@@ -18,56 +20,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
 import { formatMoney } from "../lib/money";
-import { formatDateTime, localInputToIso, todayKyiv, addDays } from "../lib/datetime";
-import { useRouter } from "../lib/router";
-import { Plus, Pencil, Trash2, CreditCard as CreditCardIcon } from "lucide-react";
-import type React from "react";
+import { localInputToIso, todayKyiv } from "../lib/datetime";
+import { plural } from "../lib/plural";
+import { Plus, CreditCard } from "lucide-react";
 
-function EmptyState({
-  icon: Icon,
-  text,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  text: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent">
-        <Icon className="h-6 w-6 text-primary/60" />
-      </div>
-      <p className="text-sm text-muted-foreground">{text}</p>
-    </div>
-  );
+type Period = "month" | "last" | "all";
+
+/** First day of this month and of the previous one, "YYYY-MM-DD". */
+function monthStarts(today: string): { thisMonth: string; lastMonth: string } {
+  const [y, m] = today.split("-").map(Number);
+  const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+  return { thisMonth: `${today.slice(0, 7)}-01`, lastMonth: `${prev}-01` };
 }
-
-const METHOD_LABEL = { cash: "Готівка", card: "Картка", transfer: "Переказ" } as const;
 
 export function PaymentsPage() {
   const { token } = useSession();
-  const { navigate } = useRouter();
 
-  const today = todayKyiv();
-  const firstOfMonth = today.slice(0, 7) + "-01";
-  const [from, setFrom] = useState(firstOfMonth);
-  const [to, setTo] = useState("");
+  const { thisMonth, lastMonth } = monthStarts(todayKyiv());
+  const [period, setPeriod] = useState<Period>("month");
   const [studentId, setStudentId] = useState("all");
   const [students, setStudents] = useState<Student[]>([]);
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Bumped after a change so the balances list reloads too.
+  const [version, setVersion] = useState(0);
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [editPayment, setEditPayment] = useState<Payment | undefined>();
+  const [form, setForm] = useState<{ initial?: Payment } | null>(null);
 
   useEffect(() => {
     listStudents(token, false)
@@ -80,81 +61,71 @@ export function PaymentsPage() {
     setError("");
     const filters: { student_id?: string; from?: string; to?: string } = {};
     if (studentId !== "all") filters.student_id = studentId;
-    if (from) filters.from = localInputToIso(`${from}T00:00`);
-    if (to) filters.to = localInputToIso(`${addDays(to, 1)}T00:00`);
+    if (period === "month") filters.from = localInputToIso(`${thisMonth}T00:00`);
+    if (period === "last") {
+      filters.from = localInputToIso(`${lastMonth}T00:00`);
+      filters.to = localInputToIso(`${thisMonth}T00:00`);
+    }
     listPayments(token, filters)
       .then(setPayments)
       .catch(() => setError("Не вдалося завантажити оплати"))
       .finally(() => setLoading(false));
-  }, [token, studentId, from, to]);
+  }, [token, studentId, period, thisMonth, lastMonth]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const handleDelete = async (payment: Payment) => {
-    if (!confirm("Видалити оплату?")) return;
-    try {
-      await deletePayment(token, payment.id);
-      load();
-    } catch {
-      alert("Помилка видалення");
-    }
+  const changed = () => {
+    load();
+    setVersion((v) => v + 1);
   };
 
   const total = payments.reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Оплати</h1>
-          <Button
-            className="gap-1.5"
-            onClick={() => {
-              setEditPayment(undefined);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Нова оплата
-          </Button>
-        </div>
+      <div className="space-y-7">
+        <PageHeader
+          title="Оплати"
+          subtitle="Хто скільки винен і що вже надійшло. Натисніть на учня, щоб побачити його історію."
+          actions={
+            <Button className="gap-1.5" onClick={() => setForm({})}>
+              <Plus className="h-4 w-4" />
+              Записати оплату
+            </Button>
+          }
+        />
 
-        <StudentBalances />
+        <StudentBalances key={version} />
 
-        <h2 className="text-lg font-semibold pt-2">Останні оплати</h2>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="space-y-1">
-            <Label htmlFor="pp-from">З дати</Label>
-            <Input
-              id="pp-from"
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="w-40"
-            />
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold">Надходження</h2>
+            {!loading && payments.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {plural(payments.length, ["оплата", "оплати", "оплат"])} на{" "}
+                <span className="font-semibold text-emerald-700">{formatMoney(total)}</span>
+              </p>
+            )}
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="pp-to">По дату</Label>
-            <Input
-              id="pp-to"
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="w-40"
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SegmentedTabs
+              value={period}
+              onChange={setPeriod}
+              items={[
+                { value: "month", label: "Цей місяць" },
+                { value: "last", label: "Минулий" },
+                { value: "all", label: "Усі" },
+              ]}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pp-student">Учень</Label>
             <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger id="pp-student" className="w-48">
-                <SelectValue placeholder="Всі учні" />
+              <SelectTrigger className="sm:w-52" aria-label="Учень">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Всі учні</SelectItem>
+                <SelectItem value="all">Усі учні</SelectItem>
                 {students.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.full_name}
@@ -163,96 +134,41 @@ export function PaymentsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="sm" onClick={load}>
-            Оновити
-          </Button>
-        </div>
 
-        {loading ? (
-          <LoadingSpinner />
-        ) : error ? (
-          <ErrorMessage message={error} />
-        ) : payments.length === 0 ? (
-          <EmptyState icon={CreditCardIcon} text="Оплат не знайдено" />
-        ) : (
-          <>
-            <div className="flex justify-end text-sm font-medium">
-              Всього: <span className="ml-2 text-green-700">{formatMoney(total)}</span>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Дата</TableHead>
-                  <TableHead>Учень</TableHead>
-                  <TableHead className="text-right">Сума</TableHead>
-                  <TableHead>Спосіб</TableHead>
-                  <TableHead>Коментар</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="text-sm">{formatDateTime(p.paid_at)}</TableCell>
-                    <TableCell>
-                      <button
-                        className="font-medium hover:underline"
-                        onClick={() => navigate(`/payments/students/${p.student_id}`)}
-                      >
-                        {p.student_full_name}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-green-700">
-                      {formatMoney(p.amount)}
-                    </TableCell>
-                    <TableCell className="text-sm">{METHOD_LABEL[p.method]}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {p.comment ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditPayment(p);
-                            setFormOpen(true);
-                          }}
-                          title="Редагувати"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => void handleDelete(p)}
-                          title="Видалити"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </>
-        )}
+          {loading ? (
+            <LoadingSpinner />
+          ) : error ? (
+            <ErrorMessage message={error} />
+          ) : payments.length === 0 ? (
+            <EmptyState icon={CreditCard} text="За цей період оплат немає" />
+          ) : (
+            <PaymentRows
+              rows={payments.map((p) => ({
+                key: p.id,
+                at: p.paid_at,
+                amount: p.amount,
+                title: p.student_full_name,
+                payment: p,
+              }))}
+              onPayment={(p) => setForm({ initial: p })}
+            />
+          )}
+        </section>
       </div>
 
-      {formOpen && (
+      {form && (
         <PaymentForm
-          open={formOpen}
-          onClose={() => {
-            setFormOpen(false);
-            setEditPayment(undefined);
-          }}
+          open
+          initial={form.initial}
+          onClose={() => setForm(null)}
           onSaved={() => {
-            setFormOpen(false);
-            setEditPayment(undefined);
-            load();
+            setForm(null);
+            changed();
           }}
-          initial={editPayment}
+          onDelete={async (p) => {
+            await deletePayment(token, p.id);
+            changed();
+          }}
         />
       )}
     </Layout>

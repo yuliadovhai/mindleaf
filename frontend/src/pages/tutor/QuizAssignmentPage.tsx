@@ -28,6 +28,8 @@ function GradeForm({
   const [feedback, setFeedback] = useState(question.answer?.feedback ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Ungraded answers show the form; graded ones only a small "change" link.
+  const [open, setOpen] = useState(question.answer?.points === null);
 
   const save = async () => {
     setSaving(true);
@@ -39,6 +41,7 @@ function GradeForm({
           feedback: feedback.trim() || null,
         })
       );
+      setOpen(false);
     } catch {
       setError(`Бали мають бути від 0 до ${question.points}`);
     } finally {
@@ -46,8 +49,19 @@ function GradeForm({
     }
   };
 
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-sm font-medium text-primary hover:underline"
+      >
+        Змінити бали
+      </button>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 p-2">
+    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
       <Input
         type="number"
         min={0}
@@ -65,7 +79,7 @@ function GradeForm({
         onChange={(e) => setFeedback(e.target.value)}
       />
       <Button size="sm" disabled={saving || points === ""} onClick={() => void save()}>
-        {question.answer?.points === null ? "Оцінити" : "Змінити бали"}
+        {question.answer?.points === null ? "Оцінити" : "Зберегти"}
       </Button>
       {error && <p className="w-full text-sm text-destructive">{error}</p>}
     </div>
@@ -92,11 +106,16 @@ export function QuizAssignmentPage({ id }: { id: string }) {
     );
 
   return (
-    <Layout>
-      <div className="space-y-6 max-w-3xl">
-        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate("/quizzes")}>
+    <Layout width="narrow">
+      <div className="space-y-5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-3 gap-1.5"
+          onClick={() => navigate("/quizzes")}
+        >
           <ArrowLeft className="h-4 w-4" />
-          Усі тести
+          Навчання · Тести
         </Button>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -119,10 +138,14 @@ export function QuizAssignmentPage({ id }: { id: string }) {
           <p className="text-sm text-muted-foreground">Учень ще не пройшов тест.</p>
         ) : (
           data.questions.map((q, i) => (
-            <div key={q.id} className="space-y-2">
-              <QuizQuestionView question={q} index={i} showReference />
-              <GradeForm assignmentId={data.id} question={q} onSaved={setData} />
-            </div>
+            <QuizQuestionView key={q.id} question={q} index={i} showReference>
+              <GradeForm
+                key={`${q.id}-${q.answer?.points ?? "none"}`}
+                assignmentId={data.id}
+                question={q}
+                onSaved={setData}
+              />
+            </QuizQuestionView>
           ))
         )}
       </div>

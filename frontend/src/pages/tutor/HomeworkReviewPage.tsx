@@ -9,7 +9,10 @@ import { HomeworkAssignmentRow } from "../../components/HomeworkAssignmentRow";
 import { SubmissionCard } from "../../components/SubmissionCard";
 import { Button } from "../../components/ui/button";
 import { useLoad } from "../../lib/useLoad";
-import { Plus } from "lucide-react";
+import { CheckCircle2, ClipboardList, Plus } from "lucide-react";
+import { LearningHeader } from "../../components/LearningHeader";
+import { SegmentedTabs } from "../../components/common/SegmentedTabs";
+import { EmptyState } from "../../components/common/EmptyState";
 
 type Tab = "submitted" | "reviewed" | "assignments";
 
@@ -23,9 +26,10 @@ function Submissions({ tab }: { tab: "submitted" | "reviewed" }) {
     <div className="space-y-3">
       {error && <ErrorMessage message={error} />}
       {data?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {tab === "submitted" ? "Нічого не чекає на перевірку." : "Перевірених ще немає."}
-        </p>
+        <EmptyState
+          icon={tab === "submitted" ? CheckCircle2 : ClipboardList}
+          text={tab === "submitted" ? "Усе перевірено — нічого не чекає." : "Перевірених ще немає."}
+        />
       )}
       {data?.map((item) => (
         <SubmissionCard
@@ -38,22 +42,17 @@ function Submissions({ tab }: { tab: "submitted" | "reviewed" }) {
   );
 }
 
-function Assignments() {
+function Assignments({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
   const { token } = useSession();
-  const [open, setOpen] = useState(false);
   const load = useCallback(() => listHomeworkAssignments(token), [token]);
   const { data, loading, error, reload } = useLoad(load);
 
   return (
     <div className="space-y-3">
-      <Button className="gap-1.5" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" />
-        Задати ДЗ
-      </Button>
       {loading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} />}
       {data?.length === 0 && (
-        <p className="text-sm text-muted-foreground">Окремих завдань ще немає.</p>
+        <EmptyState icon={ClipboardList} text="Ви ще не задавали окремих ДЗ." />
       )}
       {data?.map((a) => (
         <HomeworkAssignmentRow key={a.id} assignment={a} onDeleted={() => void reload()} />
@@ -69,29 +68,40 @@ function Assignments() {
 
 export function HomeworkReviewPage() {
   const [tab, setTab] = useState<Tab>("submitted");
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "submitted", label: "На перевірку" },
-    { id: "reviewed", label: "Перевірені" },
-    { id: "assignments", label: "Завдання учням" },
-  ];
+  const [creating, setCreating] = useState(false);
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Домашні завдання</h1>
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => (
+      <div className="space-y-5">
+        <LearningHeader
+          section="homework"
+          actions={
             <Button
-              key={t.id}
-              variant={tab === t.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTab(t.id)}
+              className="gap-1.5"
+              onClick={() => {
+                setTab("assignments");
+                setCreating(true);
+              }}
             >
-              {t.label}
+              <Plus className="h-4 w-4" />
+              Задати ДЗ
             </Button>
-          ))}
-        </div>
-        {tab === "assignments" ? <Assignments /> : <Submissions key={tab} tab={tab} />}
+          }
+        />
+        <SegmentedTabs
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: "submitted", label: "На перевірку" },
+            { value: "reviewed", label: "Перевірені" },
+            { value: "assignments", label: "Задані" },
+          ]}
+        />
+        {tab === "assignments" ? (
+          <Assignments open={creating} setOpen={setCreating} />
+        ) : (
+          <Submissions key={tab} tab={tab} />
+        )}
       </div>
     </Layout>
   );

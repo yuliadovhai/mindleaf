@@ -4,6 +4,7 @@ import { createInvite, listInvites, listLinks, removeLink, revokeInvite } from "
 import type { InviteCreated, Relation } from "../api/types";
 import { ApiError } from "../api/client";
 import { formatDateTime } from "../lib/datetime";
+import { CARD } from "../lib/labels";
 import { useLoad } from "../lib/useLoad";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -17,6 +18,7 @@ const RELATION_LABEL: Record<Relation, string> = { student: "Учень", parent
 export function StudentAccessPanel({ studentId }: { studentId: string }) {
   const { token } = useSession();
   const [fresh, setFresh] = useState<InviteCreated | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -31,6 +33,7 @@ export function StudentAccessPanel({ studentId }: { studentId: string }) {
   const issue = async (relation: Relation) => {
     setError("");
     try {
+      setCopied(false);
       setFresh(await createInvite(token, studentId, relation));
       await reload();
     } catch (e) {
@@ -64,7 +67,7 @@ export function StudentAccessPanel({ studentId }: { studentId: string }) {
       {loadError && <ErrorMessage message={loadError} />}
 
       {fresh && (
-        <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-4 space-y-2">
+        <div className="space-y-2 rounded-2xl border-2 border-primary/40 bg-primary/5 p-4">
           <p className="text-sm">
             Код для {fresh.relation === "student" ? "учня" : "батьків"} — покажіть його зараз, потім
             його вже не побачити:
@@ -72,12 +75,16 @@ export function StudentAccessPanel({ studentId }: { studentId: string }) {
           <div className="flex items-center gap-3">
             <span className="font-mono text-3xl tracking-widest">{fresh.code}</span>
             <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Скопіювати"
-              onClick={() => void navigator.clipboard?.writeText(fresh.code)}
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                void navigator.clipboard?.writeText(fresh.code);
+                setCopied(true);
+              }}
             >
               <Copy className="h-4 w-4" />
+              {copied ? "Скопійовано" : "Скопіювати"}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">Діє до {formatDateTime(fresh.expires_at)}</p>
@@ -90,7 +97,7 @@ export function StudentAccessPanel({ studentId }: { studentId: string }) {
         {data?.links.map((link) => (
           <div
             key={link.id}
-            className="flex items-center justify-between rounded-lg border px-4 py-2"
+            className={`${CARD} flex items-center justify-between gap-2 px-4 py-2.5`}
           >
             <span className="flex items-center gap-2">
               <Badge variant="outline">{RELATION_LABEL[link.relation]}</Badge>
