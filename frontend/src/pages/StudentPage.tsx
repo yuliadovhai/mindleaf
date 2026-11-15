@@ -103,7 +103,7 @@ export function StudentPage({ id }: { id: string }) {
     student.balance < 0
       ? "text-destructive"
       : student.balance > 0
-        ? "text-emerald-600"
+        ? "text-emerald-600 dark:text-emerald-400"
         : "text-foreground";
 
   return (

@@ -45,7 +45,7 @@ export function QuizQuestionView({
             const isCorrect = correct.has(o.id);
             const Icon = isCorrect ? CheckCircle2 : isSelected ? XCircle : Circle;
             const color = isCorrect
-              ? "text-green-700"
+              ? "text-green-700 dark:text-green-400"
               : isSelected
                 ? "text-destructive"
                 : "text-muted-foreground";

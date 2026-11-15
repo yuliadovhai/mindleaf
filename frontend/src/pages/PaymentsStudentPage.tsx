@@ -118,14 +118,16 @@ export function PaymentsStudentPage({ id }: { id: string }) {
               {student.balance < 0 ? "Борг" : student.balance > 0 ? "Передплата" : "Баланс"}
             </p>
             <p
-              className={`text-2xl font-bold ${student.balance < 0 ? "text-destructive" : student.balance > 0 ? "text-emerald-600" : ""}`}
+              className={`text-2xl font-bold ${student.balance < 0 ? "text-destructive" : student.balance > 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}
             >
               {formatMoney(Math.abs(student.balance))}
             </p>
           </div>
           <div className={`${CARD} p-4`}>
             <p className="text-sm text-muted-foreground">Сплачено</p>
-            <p className="text-lg font-bold text-emerald-700 sm:text-2xl">{formatMoney(paid)}</p>
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 sm:text-2xl">
+              {formatMoney(paid)}
+            </p>
           </div>
           <div className={`${CARD} p-4`}>
             <p className="text-sm text-muted-foreground">За заняття</p>

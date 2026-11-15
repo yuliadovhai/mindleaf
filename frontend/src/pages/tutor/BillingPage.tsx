@@ -181,7 +181,7 @@ export function BillingPage() {
                 <CardContent className="space-y-2">
                   {FREE_FEATURES.map((f) => (
                     <p key={f} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-600" />
+                      <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                       {f}
                     </p>
                   ))}
@@ -210,7 +210,7 @@ export function BillingPage() {
                   <div className="space-y-2">
                     {PRO_FEATURES.map((f) => (
                       <p key={f} className="flex items-center gap-2 text-sm">
-                        <Check className="h-4 w-4 text-green-600" />
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                         {f}
                       </p>
                     ))}

@@ -51,7 +51,7 @@ export function PortalPaymentsPage() {
             >
               <p className="text-sm text-muted-foreground">{s.full_name}</p>
               <p
-                className={`text-lg font-semibold ${(s.balance ?? 0) < 0 ? "text-destructive" : "text-green-700"}`}
+                className={`text-lg font-semibold ${(s.balance ?? 0) < 0 ? "text-destructive" : "text-green-700 dark:text-green-400"}`}
               >
                 {(s.balance ?? 0) < 0
                   ? `Борг ${formatMoney(-(s.balance ?? 0))}`
