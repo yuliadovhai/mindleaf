@@ -40,15 +40,9 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md space-y-6 p-8 bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(109,93,246,0.06)]">
         <div className="text-center space-y-3">
-          <div className="flex justify-center">
-            <Logo size="lg" showName={false} />
-          </div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#6D5DF6] to-[#4F7BF7] bg-clip-text text-transparent">
-            mindleaf
+          <h1 className="flex justify-center">
+            <Logo size="lg" tagline />
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Навчання, яке видно — для репетиторів, учнів і батьків
-          </p>
         </div>
 
         {DEV_LOGIN && (
