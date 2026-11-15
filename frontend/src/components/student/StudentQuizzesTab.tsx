@@ -48,7 +48,7 @@ export function StudentQuizzesTab({
       </div>
       {error && <ErrorMessage message={error} />}
       {toCheck.length > 0 && (
-        <p className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm">
+        <p className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
           Чекають на вашу перевірку письмових відповідей: {toCheck.length}. Відкрийте тест, щоб
           поставити бали.
         </p>

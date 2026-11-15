@@ -147,7 +147,7 @@ export function LessonsPage() {
               switchView("list");
               setRange("unmarked");
             }}
-            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-[#FFF8F1] px-4 py-3 text-left text-sm"
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-[#FFF8F1] px-4 py-3 text-left text-sm dark:border-orange-800 dark:bg-orange-950"
           >
             <span>
               <span className="font-semibold">
@@ -155,7 +155,7 @@ export function LessonsPage() {
               </span>{" "}
               на відмітку: баланс рахує лише проведені заняття.
             </span>
-            <span className="flex shrink-0 items-center font-semibold text-orange-700">
+            <span className="flex shrink-0 items-center font-semibold text-orange-700 dark:text-orange-400">
               Відмітити
               <ChevronRight className="h-4 w-4" />
             </span>

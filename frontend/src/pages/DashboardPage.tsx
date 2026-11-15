@@ -270,7 +270,7 @@ export function DashboardPage() {
                 <div
                   className={`${CARD} flex items-center gap-3 px-4 py-4 text-sm text-muted-foreground`}
                 >
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
                   Немає нічого, що чекає на вас.
                 </div>
               ) : (
@@ -278,7 +278,7 @@ export function DashboardPage() {
                   {overdue.length > 0 && (
                     <TodoRow
                       icon={AlertCircle}
-                      tone="bg-[#FFF1E6] text-orange-600"
+                      tone="bg-[#FFF1E6] text-orange-600 dark:bg-orange-950 dark:text-orange-400"
                       text={
                         <>
                           Відмітити{" "}
@@ -297,7 +297,7 @@ export function DashboardPage() {
                   {d.homework_to_review > 0 && (
                     <TodoRow
                       icon={ClipboardCheck}
-                      tone="bg-[#EEEBFF] text-primary"
+                      tone="bg-[#EEEBFF] text-primary dark:bg-[#2d2560]"
                       text={
                         <>
                           Перевірити <b>{plural(d.homework_to_review, ["ДЗ", "ДЗ", "ДЗ"])}</b>
@@ -309,7 +309,7 @@ export function DashboardPage() {
                   {d.quizzes_to_review > 0 && (
                     <TodoRow
                       icon={ListChecks}
-                      tone="bg-[#E8F1FF] text-blue-600"
+                      tone="bg-[#E8F1FF] text-blue-600 dark:bg-blue-950 dark:text-blue-400"
                       text={
                         <>
                           Перевірити{" "}
@@ -322,7 +322,7 @@ export function DashboardPage() {
                   {d.debtors.length > 0 && (
                     <TodoRow
                       icon={Wallet}
-                      tone="bg-[#FFF1E6] text-orange-600"
+                      tone="bg-[#FFF1E6] text-orange-600 dark:bg-orange-950 dark:text-orange-400"
                       text={
                         <>
                           <b>
@@ -345,7 +345,7 @@ export function DashboardPage() {
                   className={`${CARD} p-4 text-left hover:bg-accent/30`}
                 >
                   <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    <TrendingUp className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                     Отримано цього місяця
                   </span>
                   <span className="mt-1 block text-xl font-bold">
@@ -357,7 +357,7 @@ export function DashboardPage() {
                   className={`${CARD} p-4 text-left hover:bg-accent/30`}
                 >
                   <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <AlertCircle className="h-4 w-4 text-orange-500" />
+                    <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-400" />
                     Борги учнів
                   </span>
                   <span

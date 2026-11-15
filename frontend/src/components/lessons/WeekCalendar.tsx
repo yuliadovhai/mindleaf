@@ -10,9 +10,9 @@ const DEFAULT_FIRST_HOUR = 8;
 const DEFAULT_LAST_HOUR = 21; // the grid ends at 21:00
 
 const BLOCK_STYLE: Record<LessonStatus, string> = {
-  planned: "border-[#6D5DF6] bg-[#EEEBFF] text-[#3F35A8]",
-  done: "border-emerald-500 bg-[#E6F8EF] text-emerald-800",
-  missed: "border-orange-400 bg-[#FFF1E6] text-orange-800",
+  planned: "border-[#6D5DF6] bg-[#EEEBFF] text-[#3F35A8] dark:bg-[#2d2560] dark:text-[#a99cf9]",
+  done: "border-emerald-500 bg-[#E6F8EF] text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  missed: "border-orange-400 bg-[#FFF1E6] text-orange-800 dark:bg-orange-950 dark:text-orange-300",
   cancelled: "border-border bg-muted text-muted-foreground line-through",
 };
 
@@ -68,7 +68,7 @@ function TimeGrid({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps
   return (
     <div className={`${CARD} overflow-hidden`}>
       {/* Day headers */}
-      <div className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))] border-b border-border bg-[#F7F6FE]">
+      <div className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))] border-b border-border bg-[#F7F6FE] dark:bg-[#1a1730]">
         <div />
         {days.map((day) => {
           const isToday = day === today;
@@ -131,7 +131,7 @@ function TimeGrid({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps
                     title={`${lesson.student_full_name} · ${STATUS_LABEL[lesson.status]}`}
                     className={`absolute inset-x-1 overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-left text-xs shadow-sm transition-transform hover:z-10 hover:scale-[1.02] ${
                       BLOCK_STYLE[lesson.status]
-                    } ${mark ? "ring-2 ring-orange-300" : ""}`}
+                    } ${mark ? "ring-2 ring-orange-300 dark:ring-orange-700" : ""}`}
                   >
                     <div className="flex items-center gap-1 font-semibold">
                       {mark && <AlertCircle className="h-3 w-3 shrink-0 text-orange-500" />}
@@ -207,7 +207,7 @@ function DayList({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps)
                         </span>
                       </span>
                       {needsMark(lesson) && (
-                        <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                        <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700 dark:bg-orange-950 dark:text-orange-400">
                           Відмітити
                         </span>
                       )}

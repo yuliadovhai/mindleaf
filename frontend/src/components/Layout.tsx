@@ -4,6 +4,7 @@ import { useMe } from "../auth/me";
 import { getPlan } from "../api/billing";
 import { useRouter } from "../lib/router";
 import { useLoad } from "../lib/useLoad";
+import { useTheme } from "../lib/theme";
 import { ROLE_LABEL } from "../lib/labels";
 import { Logo } from "./Logo";
 import { PlanBanner } from "./PlanBanner";
@@ -17,6 +18,7 @@ import {
   Home,
   ListChecks,
   LogOut,
+  Moon,
   Sun,
   Users,
   type LucideIcon,
@@ -108,6 +110,7 @@ function ProfilePanel({ plan, onNavigate }: { plan: Plan | null; onNavigate?: ()
   const { navigate, path } = useRouter();
   const session = useSession();
   const { me } = useMe();
+  const { theme, toggle } = useTheme();
   const name = me.name ?? me.email ?? "";
 
   return (
@@ -121,7 +124,7 @@ function ProfilePanel({ plan, onNavigate }: { plan: Plan | null; onNavigate?: ()
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             {me.role && ROLE_LABEL[me.role]}
             {session.isDev && (
-              <span className="rounded-full bg-[#FFF1E6] px-1.5 text-[11px] font-semibold text-orange-700">
+              <span className="rounded-full bg-[#FFF1E6] px-1.5 text-[11px] font-semibold text-orange-700 dark:bg-orange-950 dark:text-orange-400">
                 демо
               </span>
             )}
@@ -145,13 +148,22 @@ function ProfilePanel({ plan, onNavigate }: { plan: Plan | null; onNavigate?: ()
           <PlanChip plan={plan} />
         </button>
       )}
-      <button
-        onClick={session.signOut}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-      >
-        <LogOut className="h-4 w-4 shrink-0" />
-        Вийти
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={session.signOut}
+          className="flex flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Вийти
+        </button>
+        <button
+          onClick={toggle}
+          aria-label={theme === "dark" ? "Увімкнути світлу тему" : "Увімкнути темну тему"}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+      </div>
     </div>
   );
 }
