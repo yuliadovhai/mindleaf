@@ -82,3 +82,41 @@ function getKyivOffsetMinutes(d: Date): number {
   const sign = match[1] === "+" ? 1 : -1;
   return sign * (parseInt(match[2], 10) * 60 + parseInt(match[3], 10));
 }
+
+const WEEKDAYS = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const MONTHS = [
+  "січ",
+  "лют",
+  "бер",
+  "квіт",
+  "трав",
+  "черв",
+  "лип",
+  "серп",
+  "вер",
+  "жовт",
+  "лист",
+  "груд",
+];
+
+/**
+ * ISO datetime → короткий підпис заняття у часовому поясі Києва:
+ * "Сьогодні · 16:00", "Завтра · 10:00", "Вчора · 16:00", "Чт, 19 лист · 16:00".
+ * Рік додається лише тоді, коли він не поточний: "Пн, 4 січ 2027 · 10:00".
+ */
+export function formatLessonWhen(iso: string): string {
+  const day = new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ });
+  const today = todayKyiv();
+  const time = formatTime(iso);
+  if (day === today) return `Сьогодні · ${time}`;
+  if (day === addDays(today, 1)) return `Завтра · ${time}`;
+  if (day === addDays(today, -1)) return `Вчора · ${time}`;
+  const d = new Date(`${day}T00:00:00Z`);
+  const year = day.slice(0, 4) === today.slice(0, 4) ? "" : ` ${day.slice(0, 4)}`;
+  return `${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}${year} · ${time}`;
+}
+
+/** Чи припадає ISO datetime на сьогодні за Києвом */
+export function isTodayKyiv(iso: string): boolean {
+  return new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ }) === todayKyiv();
+}

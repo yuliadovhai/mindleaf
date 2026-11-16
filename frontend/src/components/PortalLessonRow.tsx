@@ -4,7 +4,7 @@ import { cancelLesson } from "../api/portal";
 import { ApiError } from "../api/client";
 import { useSession } from "../auth/session";
 import { useRouter } from "../lib/router";
-import { formatDateTime } from "../lib/datetime";
+import { formatLessonWhen, isTodayKyiv } from "../lib/datetime";
 import { formatMoney } from "../lib/money";
 import { LessonStatusBadge } from "./LessonStatusBadge";
 import { Button } from "./ui/button";
@@ -14,6 +14,12 @@ const CANCEL_ERRORS: Record<string, string> = {
   cancel_too_late: "Уже пізно скасовувати — напишіть репетитору.",
   lesson_not_planned: "Це заняття вже не заплановане.",
 };
+
+/** "Вчора · 16:00" → "вчора, 16:00" — для середини речення. */
+function formatDeadline(iso: string): string {
+  const text = formatLessonWhen(iso).replace(" · ", ", ");
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
 
 interface Props {
   lesson: PortalLesson;
@@ -43,15 +49,23 @@ export function PortalLessonRow({ lesson, showStudent, onChanged }: Props) {
     }
   };
 
+  const today = lesson.status === "planned" && isTodayKyiv(lesson.starts_at);
+
   return (
-    <div className="rounded-lg border bg-card px-4 py-3 space-y-2">
+    <div
+      className={`rounded-lg border px-4 py-3 space-y-2 ${today ? "bg-card border-primary/40 border-l-4 border-l-primary" : "bg-card"}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-mono text-muted-foreground">
-            {formatDateTime(lesson.starts_at)}
+          <span className={`text-sm font-medium tabular-nums ${today ? "text-primary" : ""}`}>
+            {formatLessonWhen(lesson.starts_at)}
           </span>
           {showStudent && <span className="font-medium">{lesson.student_full_name}</span>}
-          {lesson.topic && <span className="text-sm">{lesson.topic}</span>}
+          {lesson.topic ? (
+            <span className="text-sm">{lesson.topic}</span>
+          ) : (
+            <span className="text-sm text-muted-foreground">Без теми</span>
+          )}
           <span className="text-sm text-muted-foreground">{lesson.duration_minutes} хв</span>
         </div>
         <div className="flex items-center gap-2">
@@ -98,7 +112,7 @@ export function PortalLessonRow({ lesson, showStudent, onChanged }: Props) {
         )}
         {lesson.status === "planned" && !lesson.can_cancel && lesson.price !== null && (
           <span className="text-xs text-muted-foreground">
-            Скасувати можна було до {formatDateTime(lesson.cancel_deadline)}
+            Скасувати можна було до {formatDeadline(lesson.cancel_deadline)}
           </span>
         )}
       </div>

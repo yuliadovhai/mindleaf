@@ -1,4 +1,4 @@
-import type { Lesson, LessonStatus } from "../../api/types";
+import type { LessonStatus } from "../../api/types";
 import { addDays } from "../../lib/datetime";
 import { CARD } from "../../lib/labels";
 import { STATUS_LABEL } from "../LessonStatusBadge";
@@ -16,19 +16,35 @@ const BLOCK_STYLE: Record<LessonStatus, string> = {
   cancelled: "border-border bg-muted text-muted-foreground line-through",
 };
 
-interface WeekCalendarProps {
+/** What the calendar needs from a lesson: the tutor's and the portal's both fit. */
+export interface CalendarLesson {
+  id: string;
+  starts_at: string;
+  duration_minutes: number;
+  status: LessonStatus;
+  topic: string | null;
+  student_full_name: string;
+}
+
+interface WeekCalendarProps<L extends CalendarLesson> {
   /** Monday, "YYYY-MM-DD". */
   start: string;
   today: string;
-  lessons: Lesson[];
-  onLesson: (lesson: Lesson) => void;
-  /** An empty slot was clicked: "YYYY-MM-DDTHH:MM". */
-  onSlot: (startsAt: string) => void;
+  lessons: L[];
+  onLesson: (lesson: L) => void;
+  /** An empty slot was clicked: "YYYY-MM-DDTHH:MM". Without it the calendar is read-only. */
+  onSlot?: (startsAt: string) => void;
+  /** The bold line of a block; the student's name by default. */
+  blockTitle?: (lesson: L) => string;
+  /** Flag planned lessons that already started (the tutor must mark them). */
+  showMarks?: boolean;
 }
 
-function byDay(start: string, lessons: Lesson[]) {
+const byName = (lesson: CalendarLesson) => lesson.student_full_name;
+
+function byDay<L extends CalendarLesson>(start: string, lessons: L[]) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  const map = new Map<string, { lesson: Lesson; minutes: number }[]>(days.map((d) => [d, []]));
+  const map = new Map<string, { lesson: L; minutes: number }[]>(days.map((d) => [d, []]));
   for (const lesson of lessons) {
     const { date, minutes } = lessonClock(lesson);
     map.get(date)?.push({ lesson, minutes });
@@ -38,7 +54,7 @@ function byDay(start: string, lessons: Lesson[]) {
 }
 
 /** Laptop: a time grid. Phone: the same week as a list of days. */
-export function WeekCalendar(props: WeekCalendarProps) {
+export function WeekCalendar<L extends CalendarLesson>(props: WeekCalendarProps<L>) {
   return (
     <>
       <div className="hidden md:block">
@@ -51,7 +67,15 @@ export function WeekCalendar(props: WeekCalendarProps) {
   );
 }
 
-function TimeGrid({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps) {
+function TimeGrid<L extends CalendarLesson>({
+  start,
+  today,
+  lessons,
+  onLesson,
+  onSlot,
+  blockTitle = byName,
+  showMarks = true,
+}: WeekCalendarProps<L>) {
   const { days, map } = byDay(start, lessons);
 
   // Stretch the grid when a lesson falls outside 8:00–21:00.
@@ -107,39 +131,46 @@ function TimeGrid({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps
               key={day}
               className={`relative border-l border-border ${day === today ? "bg-accent/30" : ""}`}
             >
-              {hours.map((h) => (
-                <button
-                  key={h}
-                  style={{ height: HOUR_PX }}
-                  onClick={() => onSlot(`${day}T${hhmm(h * 60)}`)}
-                  aria-label={`Нове заняття ${dayMonth(day)} о ${hhmm(h * 60)}`}
-                  className="group flex w-full items-start justify-center border-b border-border/60 pt-1 hover:bg-accent/50"
-                >
-                  <Plus className="h-4 w-4 text-primary opacity-0 group-hover:opacity-60" />
-                </button>
-              ))}
+              {hours.map((h) =>
+                onSlot ? (
+                  <button
+                    key={h}
+                    style={{ height: HOUR_PX }}
+                    onClick={() => onSlot(`${day}T${hhmm(h * 60)}`)}
+                    aria-label={`Нове заняття ${dayMonth(day)} о ${hhmm(h * 60)}`}
+                    className="group flex w-full items-start justify-center border-b border-border/60 pt-1 hover:bg-accent/50"
+                  >
+                    <Plus className="h-4 w-4 text-primary opacity-0 group-hover:opacity-60" />
+                  </button>
+                ) : (
+                  <div key={h} style={{ height: HOUR_PX }} className="border-b border-border/60" />
+                )
+              )}
 
               {map.get(day)!.map(({ lesson, minutes }) => {
                 const top = ((minutes - first * 60) / 60) * HOUR_PX;
                 const height = Math.max((lesson.duration_minutes / 60) * HOUR_PX - 3, 22);
-                const mark = needsMark(lesson);
+                const mark = showMarks && needsMark(lesson);
                 return (
                   <button
                     key={lesson.id}
                     onClick={() => onLesson(lesson)}
                     style={{ top: top + 1, height }}
-                    title={`${lesson.student_full_name} · ${STATUS_LABEL[lesson.status]}`}
+                    title={`${blockTitle(lesson)} · ${STATUS_LABEL[lesson.status]}`}
                     className={`absolute inset-x-1 overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-left text-xs shadow-sm transition-transform hover:z-10 hover:scale-[1.02] ${
                       BLOCK_STYLE[lesson.status]
                     } ${mark ? "ring-2 ring-orange-300 dark:ring-orange-700" : ""}`}
                   >
                     <div className="flex items-center gap-1 font-semibold">
                       {mark && <AlertCircle className="h-3 w-3 shrink-0 text-orange-500" />}
-                      <span className="truncate">{lesson.student_full_name}</span>
+                      <span className="truncate">{blockTitle(lesson)}</span>
                     </div>
                     {height > 34 && (
                       <div className="truncate opacity-80">
-                        {hhmm(minutes)} {lesson.topic ? `· ${lesson.topic}` : ""}
+                        {hhmm(minutes)}{" "}
+                        {lesson.topic && lesson.topic !== blockTitle(lesson)
+                          ? `· ${lesson.topic}`
+                          : ""}
                       </div>
                     )}
                   </button>
@@ -153,7 +184,15 @@ function TimeGrid({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps
   );
 }
 
-function DayList({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps) {
+function DayList<L extends CalendarLesson>({
+  start,
+  today,
+  lessons,
+  onLesson,
+  onSlot,
+  blockTitle = byName,
+  showMarks = true,
+}: WeekCalendarProps<L>) {
   const { days, map } = byDay(start, lessons);
   return (
     <div className="space-y-3">
@@ -174,13 +213,15 @@ function DayList({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps)
                 <span className="capitalize">{weekdayShort(day)}</span>
                 {isToday && <span className="text-xs font-normal text-primary">сьогодні</span>}
               </h3>
-              <button
-                onClick={() => onSlot(`${day}T${list.length ? "18:00" : "16:00"}`)}
-                className="flex h-9 items-center gap-1 rounded-full px-3 text-sm font-medium text-primary hover:bg-accent"
-              >
-                <Plus className="h-4 w-4" />
-                Заняття
-              </button>
+              {onSlot && (
+                <button
+                  onClick={() => onSlot(`${day}T${list.length ? "18:00" : "16:00"}`)}
+                  className="flex h-9 items-center gap-1 rounded-full px-3 text-sm font-medium text-primary hover:bg-accent"
+                >
+                  <Plus className="h-4 w-4" />
+                  Заняття
+                </button>
+              )}
             </div>
             {list.length === 0 ? (
               <p className="px-1 pb-1 text-sm text-muted-foreground">Вільний день</p>
@@ -199,14 +240,16 @@ function DayList({ start, today, lessons, onLesson, onSlot }: WeekCalendarProps)
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold">
-                          {lesson.student_full_name}
+                          {blockTitle(lesson)}
                         </span>
                         <span className="block truncate text-xs opacity-80">
                           {lesson.duration_minutes} хв
-                          {lesson.topic ? ` · ${lesson.topic}` : ""}
+                          {lesson.topic && lesson.topic !== blockTitle(lesson)
+                            ? ` · ${lesson.topic}`
+                            : ""}
                         </span>
                       </span>
-                      {needsMark(lesson) && (
+                      {showMarks && needsMark(lesson) && (
                         <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700 dark:bg-orange-950 dark:text-orange-400">
                           Відмітити
                         </span>

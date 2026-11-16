@@ -1,15 +1,17 @@
 import { isoToLocalInput } from "../../lib/datetime";
-import type { Lesson } from "../../api/types";
+import type { LessonStatus } from "../../api/types";
+
+type Timed = { starts_at: string; status: LessonStatus };
 
 /** Kyiv wall-clock parts of a lesson: date "YYYY-MM-DD" and minutes since midnight. */
-export function lessonClock(lesson: Lesson): { date: string; minutes: number } {
+export function lessonClock(lesson: Timed): { date: string; minutes: number } {
   const local = isoToLocalInput(lesson.starts_at);
   const [hh, mm] = local.slice(11, 16).split(":").map(Number);
   return { date: local.slice(0, 10), minutes: hh * 60 + mm };
 }
 
 /** A planned lesson that already started and still needs a mark. */
-export function needsMark(lesson: Lesson, now = Date.now()): boolean {
+export function needsMark(lesson: Timed, now = Date.now()): boolean {
   return lesson.status === "planned" && new Date(lesson.starts_at).getTime() <= now;
 }
 
