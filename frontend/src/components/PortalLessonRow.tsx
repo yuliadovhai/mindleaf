@@ -4,7 +4,7 @@ import { cancelLesson } from "../api/portal";
 import { ApiError } from "../api/client";
 import { useSession } from "../auth/session";
 import { useRouter } from "../lib/router";
-import { formatLessonWhen, isTodayKyiv } from "../lib/datetime";
+import { formatLessonWhen, formatWhenInline, isTodayKyiv } from "../lib/datetime";
 import { formatMoney } from "../lib/money";
 import { LessonStatusBadge } from "./LessonStatusBadge";
 import { Button } from "./ui/button";
@@ -14,12 +14,6 @@ const CANCEL_ERRORS: Record<string, string> = {
   cancel_too_late: "Уже пізно скасовувати — напишіть репетитору.",
   lesson_not_planned: "Це заняття вже не заплановане.",
 };
-
-/** "Вчора · 16:00" → "вчора, 16:00" — для середини речення. */
-function formatDeadline(iso: string): string {
-  const text = formatLessonWhen(iso).replace(" · ", ", ");
-  return text.charAt(0).toLowerCase() + text.slice(1);
-}
 
 interface Props {
   lesson: PortalLesson;
@@ -112,7 +106,7 @@ export function PortalLessonRow({ lesson, showStudent, onChanged }: Props) {
         )}
         {lesson.status === "planned" && !lesson.can_cancel && lesson.price !== null && (
           <span className="text-xs text-muted-foreground">
-            Скасувати можна було до {formatDeadline(lesson.cancel_deadline)}
+            Скасувати можна було до {formatWhenInline(lesson.cancel_deadline)}
           </span>
         )}
       </div>

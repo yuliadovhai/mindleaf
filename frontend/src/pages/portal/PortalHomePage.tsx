@@ -12,7 +12,7 @@ import { AssignmentStatusBadge } from "../../components/AssignmentStatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { formatMoney } from "../../lib/money";
-import { formatLessonWhen, isTodayKyiv } from "../../lib/datetime";
+import { formatWhenInline, isTodayKyiv } from "../../lib/datetime";
 import { useLoad } from "../../lib/useLoad";
 import { useRouter } from "../../lib/router";
 import { BookOpen, CalendarDays, ChevronRight, ListChecks, UserRound } from "lucide-react";
@@ -26,12 +26,6 @@ interface TodoItem {
   detail: string;
   due: string | null;
   to: string;
-}
-
-/** "Сьогодні · 20:00" → "сьогодні, 20:00" — для середини речення. */
-function inSentence(iso: string): string {
-  const text = formatLessonWhen(iso).replace(" · ", ", ");
-  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 export function PortalHomePage() {
@@ -83,7 +77,8 @@ export function PortalHomePage() {
         kind: "homework" as const,
         title: h.title,
         detail:
-          (h.due_at ? `здати до ${inSentence(h.due_at)}` : "без строку") + who(h.student_full_name),
+          (h.due_at ? `здати до ${formatWhenInline(h.due_at)}` : "без строку") +
+          who(h.student_full_name),
         due: h.due_at,
         to: `/homework/${h.id}`,
       })),
@@ -91,7 +86,7 @@ export function PortalHomePage() {
       key: `lesson-${l.id}`,
       kind: "homework" as const,
       title: l.homework ?? "",
-      detail: `з заняття ${inSentence(l.starts_at)}` + who(l.student_full_name),
+      detail: `з заняття ${formatWhenInline(l.starts_at)}` + who(l.student_full_name),
       due: null,
       to: `/lessons/${l.id}/homework`,
     })),
@@ -99,7 +94,8 @@ export function PortalHomePage() {
       key: `quiz-${q.id}`,
       kind: "quiz" as const,
       title: q.quiz_title,
-      detail: (q.due_at ? `тест · до ${inSentence(q.due_at)}` : "тест") + who(q.student_full_name),
+      detail:
+        (q.due_at ? `тест · до ${formatWhenInline(q.due_at)}` : "тест") + who(q.student_full_name),
       due: q.due_at,
       to: `/quizzes/${q.id}`,
     })),

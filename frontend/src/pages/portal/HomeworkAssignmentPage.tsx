@@ -12,7 +12,7 @@ import { ErrorMessage } from "../../components/ErrorMessage";
 import { HomeworkAnswer } from "../../components/HomeworkAnswer";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { formatDateTime } from "../../lib/datetime";
+import { formatWhenInline } from "../../lib/datetime";
 import { useLoad } from "../../lib/useLoad";
 import { useRouter } from "../../lib/router";
 import { ArrowLeft, Paperclip } from "lucide-react";
@@ -57,7 +57,7 @@ export function HomeworkAssignmentPage({ id }: { id: string }) {
               {data.due_at && (
                 <span className={overdue ? "text-destructive font-medium" : ""}>
                   {" "}
-                  · здати до {formatDateTime(data.due_at)}
+                  · здати до {formatWhenInline(data.due_at)}
                 </span>
               )}
             </p>

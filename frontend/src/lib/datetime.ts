@@ -120,3 +120,9 @@ export function formatLessonWhen(iso: string): string {
 export function isTodayKyiv(iso: string): boolean {
   return new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ }) === todayKyiv();
 }
+
+/** Те саме, що formatLessonWhen, але для середини речення: "сьогодні, 20:00", "чт, 19 лист, 16:00". */
+export function formatWhenInline(iso: string): string {
+  const text = formatLessonWhen(iso).replace(" · ", ", ");
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}

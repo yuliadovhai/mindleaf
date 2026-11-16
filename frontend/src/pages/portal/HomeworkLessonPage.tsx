@@ -8,8 +8,8 @@ import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { ErrorMessage } from "../../components/ErrorMessage";
 import { HomeworkAnswer } from "../../components/HomeworkAnswer";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { formatDateTime } from "../../lib/datetime";
+import { Card, CardHeader, CardTitle } from "../../components/ui/card";
+import { formatLessonWhen } from "../../lib/datetime";
 import { useLoad } from "../../lib/useLoad";
 import { useRouter } from "../../lib/router";
 import { ArrowLeft } from "lucide-react";
@@ -52,16 +52,18 @@ export function HomeworkLessonPage({ id }: { id: string }) {
           Усі ДЗ
         </Button>
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Завдання з заняття</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
+          <CardHeader className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+              ДЗ з заняття
+            </p>
+            <CardTitle className="whitespace-pre-wrap text-xl">
+              {lesson.homework ?? "Без домашнього завдання"}
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {lesson.student_full_name} · {formatDateTime(lesson.starts_at)}
+              {lesson.student_full_name} · {formatLessonWhen(lesson.starts_at)}
               {lesson.topic ? ` · ${lesson.topic}` : ""}
             </p>
-            <p className="text-base">{lesson.homework ?? "Без домашнього завдання"}</p>
-          </CardContent>
+          </CardHeader>
         </Card>
         <HomeworkAnswer
           answer={answer}

@@ -37,11 +37,14 @@ app = FastAPI(
     description="Кабінет репетитора. Усі суми — у копійках, час — Europe/Kyiv.",
 )
 
+# Every method a route uses must be here, or the browser blocks it at the preflight.
+CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
+
 if settings.cors_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=CORS_METHODS,
         allow_headers=["Authorization", "Content-Type"],
     )
 
