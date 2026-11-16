@@ -1,4 +1,4 @@
-# tutor-cabinet
+# MindLeaf — кабінет репетитора, учня й батьків
 
 Кабінет для репетиторів, які працюють самі на себе. Репетитор реєструється, веде список учнів, планує заняття, відмічає проведені й записує оплати, а система рахує, хто скільки винен. Репетитор також задає домашні завдання й тести.
 
@@ -10,7 +10,15 @@
 
 Інтерфейс українською, гроші в гривнях (в API і в базі — цілі копійки), час — `Europe/Kyiv`.
 
-Структура репозиторію і контракти між частинами описані в [PROJECT.md](PROJECT.md). Зараз у репозиторії є backend, frontend і локальне оточення. `infra/` поки що існує тільки як опис.
+Структура репозиторію і контракти між частинами описані в [PROJECT.md](PROJECT.md). Верхній рівень репозиторію:
+
+| Папка | Що там |
+| --- | --- |
+| `backend/` | API на FastAPI + PostgreSQL, міграції Alembic, тести |
+| `frontend/` | React + Vite: кабінети репетитора, учня й батьків |
+| `infra/` | Деплой: `render.yaml` (Render) і покрокова інструкція з Cognito |
+
+**Робоча версія:** https://mindleaf-web.onrender.com — реєстрація через email.
 
 ## Подивитися всі три кабінети за дві хвилини
 
@@ -47,7 +55,7 @@ docker compose up --build
 - Перевірка: `curl http://localhost:8000/api/health` → `{"status":"ok"}`
 - Документація ендпоінтів (Swagger UI): http://localhost:8000/docs
 
-Усі ендпоінти, крім `/api/health`, вимагають `Authorization: Bearer <Cognito access token>`. Поки Cognito-пул не створено (`infra/`), вони відповідають `401`. Коли пул з'явиться, вистачить передати його значення:
+Усі ендпоінти, крім `/api/health`, вимагають `Authorization: Bearer <Cognito access token>`. Без Cognito-пулу вони відповідають `401` (демо-кнопки входу обходять це локально). Щоб локальний backend приймав справжні токени, передайте значення пулу з [infra/README.md](infra/README.md):
 
 ```sh
 COGNITO_AUTHORITY=https://cognito-idp.us-east-1.amazonaws.com/<pool_id> \
@@ -128,9 +136,6 @@ backend/app/
 
 ## Деплой
 
-Ще не реалізовано. Цільова схема — AWS us-east-1 без погодинних платежів:
-- фронтенд у приватному S3 за CloudFront;
-- backend — цей самий FastAPI як Lambda container image (`backend/Dockerfile.lambda`) з function URL у VPC поруч з Aurora Serverless v2;
-- ШІ-оцінювач — той самий образ окремою Lambda поза VPC, раз на хвилину через EventBridge Scheduler;
-- фото ДЗ — у приватному S3;
-- автентифікація через Cognito, деплой з GitHub Actions через OIDC-роль. Інфраструктуру, цілі Makefile і порядок першого розгортання описано в [PROJECT.md](PROJECT.md#infra); вони з'являться разом з `infra/`.
+Прототип розгорнуто на [Render](https://render.com) (backend у Docker, PostgreSQL 16, frontend як статичний сайт, усе з HTTPS), вхід — через Amazon Cognito. Уся конфігурація — [`infra/render.yaml`](infra/render.yaml), покрокова інструкція першого розгортання — [`infra/README.md`](infra/README.md). Після цього кожен `git push` у `main` перезбирає сайт сам.
+
+Цільова продакшн-схема для AWS (Lambda + Aurora Serverless v2 + S3/CloudFront + Cognito, деплой з GitHub Actions через OIDC-роль) описана в [PROJECT.md](PROJECT.md#infra).

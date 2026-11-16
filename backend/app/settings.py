@@ -13,6 +13,15 @@ from zoneinfo import ZoneInfo
 TIMEZONE = ZoneInfo("Europe/Kyiv")
 
 
+def _sqlalchemy_url(url: str) -> str:
+    """Hosts such as Render hand out "postgres://" / "postgresql://" URLs; this app
+    talks to PostgreSQL through psycopg 3, so name the driver explicitly."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str
@@ -54,7 +63,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         origins = os.environ.get("CORS_ORIGINS", "")
         return cls(
-            database_url=os.environ.get("DATABASE_URL", ""),
+            database_url=_sqlalchemy_url(os.environ.get("DATABASE_URL", "")),
             cognito_authority=os.environ.get("COGNITO_AUTHORITY", "").rstrip("/"),
             cognito_client_id=os.environ.get("COGNITO_CLIENT_ID", ""),
             cognito_jwks=os.environ.get("COGNITO_JWKS") or None,
