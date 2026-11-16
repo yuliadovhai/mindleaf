@@ -7,6 +7,7 @@ import { useRouter } from "./lib/router";
 import { useLoad } from "./lib/useLoad";
 import { LoginPage } from "./pages/LoginPage";
 import { RoleChoicePage } from "./pages/RoleChoicePage";
+import { NamePage } from "./pages/NamePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { StudentsPage } from "./pages/StudentsPage";
 import { StudentPage } from "./pages/StudentPage";
@@ -135,7 +136,9 @@ function Cabinet() {
 
   return (
     <MeContext.Provider value={{ me, reload }}>
-      {me.role === null ? (
+      {!me.name?.trim() ? (
+        <NamePage />
+      ) : me.role === null ? (
         <RoleChoicePage />
       ) : (
         <ErrorBoundary key={path}>
