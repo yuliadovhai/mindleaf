@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { PlanContext } from "../lib/planContext";
+import { useEffect, useState } from "react";
+import { usePlanContext } from "../lib/planContext";
 import { useSession } from "../auth/session";
 import { useMe } from "../auth/me";
-import { getPlan } from "../api/billing";
 import { useRouter } from "../lib/router";
-import { useLoad } from "../lib/useLoad";
 import { useTheme } from "../lib/theme";
 import { ROLE_LABEL } from "../lib/labels";
 import { Logo } from "./Logo";
@@ -83,17 +81,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
-}
-
-function usePlanState(enabled: boolean) {
-  const { token } = useSession();
-  const load = useCallback(
-    () => (enabled ? getPlan(token) : Promise.resolve(null)),
-    [enabled, token]
-  );
-  const { data, setData, loading } = useLoad(load);
-  const setPlan = useCallback((p: Plan) => setData(p), [setData]);
-  return { plan: data ?? null, planLoading: loading, setPlan };
 }
 
 function PlanChip({ plan }: { plan: Plan | null }) {
@@ -308,24 +295,22 @@ interface LayoutProps {
 export function Layout({ children, width = "wide" }: LayoutProps) {
   const { me } = useMe();
   const items = navFor(me.role);
-  const { plan, planLoading, setPlan } = usePlanState(me.role === "tutor");
+  const { plan } = usePlanContext();
 
   return (
-    <PlanContext.Provider value={{ plan, planLoading, setPlan }}>
-      <div className="min-h-screen">
-        <DesktopSidebar items={items} plan={plan} />
-        <MobileChrome items={items} plan={plan} />
-        <main className="pb-24 md:pb-0 md:pl-60">
-          <div
-            className={`mx-auto px-4 py-5 md:px-8 md:py-8 ${
-              width === "narrow" ? "max-w-3xl" : "max-w-6xl"
-            }`}
-          >
-            {me.role === "tutor" && <PlanBanner plan={plan} />}
-            {children}
-          </div>
-        </main>
-      </div>
-    </PlanContext.Provider>
+    <div className="min-h-screen">
+      <DesktopSidebar items={items} plan={plan} />
+      <MobileChrome items={items} plan={plan} />
+      <main className="pb-24 md:pb-0 md:pl-60">
+        <div
+          className={`mx-auto px-4 py-5 md:px-8 md:py-8 ${
+            width === "narrow" ? "max-w-3xl" : "max-w-6xl"
+          }`}
+        >
+          {me.role === "tutor" && <PlanBanner plan={plan} />}
+          {children}
+        </div>
+      </main>
+    </div>
   );
 }

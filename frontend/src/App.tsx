@@ -3,6 +3,7 @@ import { useSession } from "./auth/session";
 import { MeContext } from "./auth/me";
 import { getMe } from "./api/me";
 import { setSigninRedirect } from "./api/client";
+import { PlanProvider } from "./lib/planContext";
 import { useRouter } from "./lib/router";
 import { useLoad } from "./lib/useLoad";
 import { LoginPage } from "./pages/LoginPage";
@@ -136,19 +137,21 @@ function Cabinet() {
 
   return (
     <MeContext.Provider value={{ me, reload }}>
-      {!me.name?.trim() ? (
-        <NamePage />
-      ) : me.role === null ? (
-        <RoleChoicePage />
-      ) : (
-        <ErrorBoundary key={path}>
-          {me.role === "tutor" ? (
-            <TutorPages path={path} />
-          ) : (
-            <PortalPages path={path} role={me.role} />
-          )}
-        </ErrorBoundary>
-      )}
+      <PlanProvider>
+        {!me.name?.trim() ? (
+          <NamePage />
+        ) : me.role === null ? (
+          <RoleChoicePage />
+        ) : (
+          <ErrorBoundary key={path}>
+            {me.role === "tutor" ? (
+              <TutorPages path={path} />
+            ) : (
+              <PortalPages path={path} role={me.role} />
+            )}
+          </ErrorBoundary>
+        )}
+      </PlanProvider>
     </MeContext.Provider>
   );
 }
