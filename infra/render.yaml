@@ -63,6 +63,12 @@ services:
       # The scheduler (.github/workflows/reminders.yml) sends it as X-Cron-Token.
       - key: CRON_TOKEN
         generateValue: true
+      # Promo codes: CODE:DAYS:MAX_USES, comma-separated. Set manually in Render.
+      - key: PROMO_CODES
+        sync: false
+      # Disables the online payment button without LiqPay keys.
+      - key: BILLING_MODE
+        value: disabled
 
   # React frontend as a static site; every path falls back to index.html.
   - type: web

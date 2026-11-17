@@ -444,3 +444,103 @@ def test_worker_forwards_unsubscribe(
     assert counts[expected] == 1
     assert api.forwarded[0][0] == "https://www.liqpay.ua/api/request"
     assert tutor.get("/api/billing").json()["subscription_status"] == final_status
+
+
+# ---------- promo codes ----------
+
+
+@pytest.fixture
+def promo_settings(monkeypatch):
+    configured = dataclasses.replace(
+        billing.settings,
+        promo_codes=(("PROMO", 30, 20), ("ONEUSE", 30, 1)),
+        billing_mode_env=None,
+    )
+    monkeypatch.setattr(billing, "settings", configured)
+    monkeypatch.setattr(billing_api, "settings", configured)
+    return configured
+
+
+@pytest.fixture
+def disabled_billing(monkeypatch):
+    configured = dataclasses.replace(
+        billing.settings,
+        billing_mode_env="disabled",
+        promo_codes=(("PROMO", 30, 20),),
+    )
+    monkeypatch.setattr(billing, "settings", configured)
+    monkeypatch.setattr(billing_api, "settings", configured)
+    return configured
+
+
+def test_promo_activation(tutor, promo_settings):
+    r = tutor.post("/api/billing/promo", json={"code": "PROMO"})
+    assert r.status_code == 200
+    plan = r.json()
+    assert plan["plan"] == "pro"
+    assert plan["pro_source"] == "promo"
+
+
+def test_promo_case_insensitive_and_whitespace(tutor, promo_settings):
+    r = tutor.post("/api/billing/promo", json={"code": "  promo  "})
+    assert r.status_code == 200
+    assert r.json()["plan"] == "pro"
+
+
+def test_promo_already_used(tutor, promo_settings):
+    tutor.post("/api/billing/promo", json={"code": "PROMO"})
+    r = tutor.post("/api/billing/promo", json={"code": "PROMO"})
+    assert r.status_code == 409
+    assert r.json() == {"detail": "promo_already_used"}
+
+
+def test_promo_used_up(tutor, as_tutor, tutor_b, promo_settings):
+    tutor.post("/api/billing/promo", json={"code": "ONEUSE"})
+    r = as_tutor(tutor_b).post("/api/billing/promo", json={"code": "ONEUSE"})
+    assert r.status_code == 409
+    assert r.json() == {"detail": "promo_used_up"}
+
+
+def test_promo_not_found(tutor, promo_settings):
+    r = tutor.post("/api/billing/promo", json={"code": "NONEXISTENT"})
+    assert r.status_code == 409
+    assert r.json() == {"detail": "promo_not_found"}
+
+
+def test_promo_expires(tutor, promo_settings, monkeypatch):
+    tutor.post("/api/billing/promo", json={"code": "PROMO"})
+    assert tutor.get("/api/billing").json()["plan"] == "pro"
+
+    later = clock.now() + timedelta(days=31)
+    monkeypatch.setattr(clock, "now", lambda: later)
+
+    plan = tutor.get("/api/billing").json()
+    assert plan["plan"] == "free"
+    assert plan["pro_source"] is None
+
+
+def test_promo_on_top_of_subscription(tutor, liqpay_mode, db_client, promo_settings):
+    order = start(tutor)["order_id"]
+    callback(db_client, {"order_id": order, "status": "subscribed", "payment_id": 1})
+    assert tutor.get("/api/billing").json()["pro_source"] == "subscription"
+
+    r = tutor.post("/api/billing/promo", json={"code": "PROMO"})
+    assert r.status_code == 200
+    plan = r.json()
+    assert plan["plan"] == "pro"
+    assert plan["pro_source"] == "subscription"
+
+
+def test_billing_mode_disabled(tutor, disabled_billing):
+    checkout = tutor.post("/api/billing/checkout", json={"period": "month"})
+    assert checkout.status_code == 409
+    assert checkout.json() == {"detail": "billing_disabled"}
+
+    demo = tutor.post("/api/billing/demo/pay", json={"order_id": "tc-fake"})
+    assert demo.status_code == 404
+
+    promo = tutor.post("/api/billing/promo", json={"code": "PROMO"})
+    assert promo.status_code == 200
+    plan = promo.json()
+    assert plan["plan"] == "pro"
+    assert plan["billing_mode"] == "disabled"

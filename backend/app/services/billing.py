@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     BillingEvent,
     BillingPeriod,
+    PromoRedemption,
     Student,
     Subscription,
     SubscriptionStatus,
@@ -52,6 +53,7 @@ class PlanState:
     cancel_pending: bool
     active_students: int
     read_only: bool
+    pro_source: str | None  # "subscription" | "promo" | None
 
 
 def _paid_subscription(session: Session, tutor_id: uuid.UUID) -> Subscription | None:
@@ -63,9 +65,24 @@ def _paid_subscription(session: Session, tutor_id: uuid.UUID) -> Subscription | 
     )
 
 
+def _active_promo(session: Session, tutor_id: uuid.UUID) -> PromoRedemption | None:
+    return session.scalar(
+        select(PromoRedemption)
+        .where(
+            PromoRedemption.tutor_id == tutor_id,
+            PromoRedemption.pro_until > clock.now(),
+        )
+        .order_by(PromoRedemption.pro_until.desc())
+        .limit(1)
+    )
+
+
 def is_pro(session: Session, tutor_id: uuid.UUID) -> bool:
+    now = clock.now()
     sub = _paid_subscription(session, tutor_id)
-    return sub is not None and clock.now() < sub.paid_until + GRACE
+    if sub is not None and now < sub.paid_until + GRACE:
+        return True
+    return _active_promo(session, tutor_id) is not None
 
 
 def active_students(session: Session, tutor_id: uuid.UUID) -> int:
@@ -78,11 +95,32 @@ def active_students(session: Session, tutor_id: uuid.UUID) -> int:
 
 def plan_state(session: Session, tutor_id: uuid.UUID) -> PlanState:
     sub = _paid_subscription(session, tutor_id)
-    pro = is_pro(session, tutor_id)
+    promo = _active_promo(session, tutor_id)
+    now = clock.now()
+
+    sub_is_pro = sub is not None and now < sub.paid_until + GRACE
+    promo_is_pro = promo is not None
+
+    pro = is_pro(session, tutor_id)  # may be monkeypatched in tests
+
+    sub_pro_until = sub.paid_until if sub else None
+    promo_pro_until = promo.pro_until if promo else None
+    if sub_pro_until and promo_pro_until:
+        pro_until: datetime | None = max(sub_pro_until, promo_pro_until)
+    else:
+        pro_until = sub_pro_until or promo_pro_until
+
+    if sub_is_pro:
+        pro_source: str | None = "subscription"
+    elif promo_is_pro:
+        pro_source = "promo"
+    else:
+        pro_source = None
+
     count = active_students(session, tutor_id)
     return PlanState(
         is_pro=pro,
-        pro_until=sub.paid_until if sub else None,
+        pro_until=pro_until,
         period=sub.period if sub else None,
         subscription_status=sub.status if sub else None,
         cancel_pending=bool(
@@ -92,6 +130,7 @@ def plan_state(session: Session, tutor_id: uuid.UUID) -> PlanState:
         ),
         active_students=count,
         read_only=not pro and count > FREE_STUDENT_LIMIT,
+        pro_source=pro_source,
     )
 
 
@@ -107,6 +146,48 @@ def require_student_capacity(session: Session, tutor_id: uuid.UUID) -> None:
 def require_pro(session: Session, tutor_id: uuid.UUID) -> None:
     if not is_pro(session, tutor_id):
         raise PaymentRequired("pro_required")
+
+
+# ---------- promo codes ----------
+
+
+def redeem_promo(session: Session, tutor: User, code: str) -> PlanState:
+    """Activate a promo code for the tutor. Works regardless of billing_mode."""
+    normalized = code.strip().upper()
+
+    promo_def = next(
+        (entry for entry in settings.promo_codes if entry[0] == normalized), None
+    )
+    if promo_def is None:
+        raise Conflict("promo_not_found")
+
+    code_key, days, max_uses = promo_def
+
+    total_uses = session.scalar(
+        select(func.count())
+        .select_from(PromoRedemption)
+        .where(PromoRedemption.code == code_key)
+    )
+    if total_uses >= max_uses:
+        raise Conflict("promo_used_up")
+
+    existing = session.scalar(
+        select(PromoRedemption).where(
+            PromoRedemption.code == code_key,
+            PromoRedemption.tutor_id == tutor.id,
+        )
+    )
+    if existing is not None:
+        raise Conflict("promo_already_used")
+
+    state = plan_state(session, tutor.id)
+    base = max(clock.now(), state.pro_until or clock.now())
+    pro_until = base + timedelta(days=days)
+
+    session.add(PromoRedemption(code=code_key, tutor_id=tutor.id, pro_until=pro_until))
+    session.commit()
+
+    return plan_state(session, tutor.id)
 
 
 # ---------- checkout ----------

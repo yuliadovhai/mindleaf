@@ -452,6 +452,7 @@ export interface Plan {
   read_only: boolean;
   prices: Record<BillingPeriod, number>;
   billing_mode: "liqpay" | "demo" | "disabled";
+  pro_source: "subscription" | "promo" | null;
 }
 
 export interface CheckoutForm {

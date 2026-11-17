@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PlanContext } from "../lib/planContext";
 import { useSession } from "../auth/session";
 import { useMe } from "../auth/me";
 import { getPlan } from "../api/billing";
@@ -84,13 +85,15 @@ function initials(name: string): string {
     .join("");
 }
 
-function usePlan(enabled: boolean): Plan | null {
+function usePlanState(enabled: boolean) {
   const { token } = useSession();
   const load = useCallback(
     () => (enabled ? getPlan(token) : Promise.resolve(null)),
     [enabled, token]
   );
-  return useLoad(load).data ?? null;
+  const { data, setData, loading } = useLoad(load);
+  const setPlan = useCallback((p: Plan) => setData(p), [setData]);
+  return { plan: data ?? null, planLoading: loading, setPlan };
 }
 
 function PlanChip({ plan }: { plan: Plan | null }) {
@@ -305,22 +308,24 @@ interface LayoutProps {
 export function Layout({ children, width = "wide" }: LayoutProps) {
   const { me } = useMe();
   const items = navFor(me.role);
-  const plan = usePlan(me.role === "tutor");
+  const { plan, planLoading, setPlan } = usePlanState(me.role === "tutor");
 
   return (
-    <div className="min-h-screen">
-      <DesktopSidebar items={items} plan={plan} />
-      <MobileChrome items={items} plan={plan} />
-      <main className="pb-24 md:pb-0 md:pl-60">
-        <div
-          className={`mx-auto px-4 py-5 md:px-8 md:py-8 ${
-            width === "narrow" ? "max-w-3xl" : "max-w-6xl"
-          }`}
-        >
-          {me.role === "tutor" && <PlanBanner plan={plan} />}
-          {children}
-        </div>
-      </main>
-    </div>
+    <PlanContext.Provider value={{ plan, planLoading, setPlan }}>
+      <div className="min-h-screen">
+        <DesktopSidebar items={items} plan={plan} />
+        <MobileChrome items={items} plan={plan} />
+        <main className="pb-24 md:pb-0 md:pl-60">
+          <div
+            className={`mx-auto px-4 py-5 md:px-8 md:py-8 ${
+              width === "narrow" ? "max-w-3xl" : "max-w-6xl"
+            }`}
+          >
+            {me.role === "tutor" && <PlanBanner plan={plan} />}
+            {children}
+          </div>
+        </main>
+      </div>
+    </PlanContext.Provider>
   );
 }

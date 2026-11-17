@@ -44,6 +44,8 @@ services:
       LIQPAY_PRIVATE_KEY: ${LIQPAY_PRIVATE_KEY:-}
       LIQPAY_SANDBOX: ${LIQPAY_SANDBOX:-1}
       SITE_URL: http://localhost:5173
+      # Promo codes: CODE:DAYS:MAX_USES, comma-separated. Demo code active by default.
+      PROMO_CODES: ${PROMO_CODES:-PROMO:30:20}
     volumes:
       - uploads:/data/uploads
     ports:

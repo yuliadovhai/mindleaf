@@ -4,9 +4,39 @@ Free of app.db, so the auth code and the Lambda handler can import it without a
 database connection.
 """
 
+import logging
 import os
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
+
+_log = logging.getLogger(__name__)
+
+
+def _parse_promo_codes(raw: str) -> tuple[tuple[str, int, int], ...]:
+    result = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        parts = entry.split(":")
+        if len(parts) != 3:
+            _log.warning(
+                "PROMO_CODES: invalid entry %r (expected CODE:DAYS:MAX_USES), ignoring",
+                entry,
+            )
+            continue
+        code_str, days_str, max_uses_str = parts
+        try:
+            days = int(days_str.strip())
+            max_uses = int(max_uses_str.strip())
+            if days <= 0 or max_uses <= 0:
+                raise ValueError
+        except ValueError:
+            _log.warning("PROMO_CODES: invalid numbers in %r, ignoring", entry)
+            continue
+        result.append((code_str.strip().upper(), days, max_uses))
+    return tuple(result)
+
 
 # The product works in one time zone: "today", "this month" and every datetime in
 # API responses are in Kyiv time.
@@ -59,10 +89,16 @@ class Settings:
     # empty disables /api/internal/reminders.
     cron_token: str
     in_lambda: bool
+    # Tuple of (normalized_code, days, max_uses) parsed from PROMO_CODES env var.
+    promo_codes: tuple[tuple[str, int, int], ...]
+    # "disabled" forces billing_mode to "disabled" regardless of LiqPay keys.
+    billing_mode_env: str | None
 
     @property
     def billing_mode(self) -> str:
         """ "liqpay", "demo" (local, no keys) or "disabled" (Lambda, no keys)."""
+        if self.billing_mode_env == "disabled":
+            return "disabled"
         if self.liqpay_public_key and self.liqpay_private_key:
             return "liqpay"
         return "disabled" if self.in_lambda else "demo"
@@ -98,6 +134,8 @@ class Settings:
             telegram_webhook_secret=os.environ.get("TELEGRAM_WEBHOOK_SECRET", ""),
             cron_token=os.environ.get("CRON_TOKEN", ""),
             in_lambda=bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME")),
+            promo_codes=_parse_promo_codes(os.environ.get("PROMO_CODES", "")),
+            billing_mode_env=os.environ.get("BILLING_MODE") or None,
         )
 
 
