@@ -36,6 +36,7 @@ class PlanOut(BaseModel):
     )
     prices: dict[str, int] = Field(description="Копійки за період: month, year")
     billing_mode: str = Field(description="liqpay | demo | disabled")
+    pro_source: str | None = Field(description="subscription | promo | null")
 
 
 def _plan_out(state: PlanState) -> PlanOut:
@@ -50,6 +51,7 @@ def _plan_out(state: PlanState) -> PlanOut:
         read_only=state.read_only,
         prices={str(k): v for k, v in billing.PRICES.items()},
         billing_mode=settings.billing_mode,
+        pro_source=state.pro_source,
     )
 
 
@@ -72,6 +74,10 @@ class CheckoutOut(BaseModel):
 
 class DemoPay(RequestModel):
     order_id: str
+
+
+class PromoRequest(RequestModel):
+    code: str
 
 
 @router.get("", response_model=PlanOut)
@@ -126,6 +132,25 @@ def demo_pay(
     """Local demo mode only (no LiqPay keys): confirm the payment as LiqPay would."""
     billing.demo_pay(session, tutor, body.order_id)
     return _plan_out(billing.plan_state(session, tutor.id))
+
+
+@router.post(
+    "/promo",
+    response_model=PlanOut,
+    responses={
+        409: {
+            "model": ErrorResponse,
+            "description": "promo_not_found | promo_used_up | promo_already_used",
+        }
+    },
+)
+def redeem_promo(
+    body: PromoRequest,
+    tutor: User = Depends(get_current_tutor),
+    session: Session = Depends(get_session),
+) -> PlanOut:
+    """Activate a promo code. Works regardless of billing_mode."""
+    return _plan_out(billing.redeem_promo(session, tutor, body.code))
 
 
 @router.post("/liqpay/callback", include_in_schema=True)

@@ -4,6 +4,7 @@ from app.models.access import Invite, Relation, StudentLink
 from app.models.billing import (
     BillingEvent,
     BillingPeriod,
+    PromoRedemption,
     Subscription,
     SubscriptionStatus,
 )
@@ -36,6 +37,7 @@ from app.models.user import Role, User
 __all__ = [
     "BillingEvent",
     "BillingPeriod",
+    "PromoRedemption",
     "HomeworkAssignment",
     "HomeworkMaterial",
     "AssignmentStatus",

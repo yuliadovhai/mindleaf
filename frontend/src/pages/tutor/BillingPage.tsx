@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useSession } from "../../auth/session";
-import { cancelSubscription, getPlan, startCheckout, submitToLiqPay } from "../../api/billing";
+import { cancelSubscription, redeemPromo, startCheckout, submitToLiqPay } from "../../api/billing";
 import type { BillingPeriod } from "../../api/types";
 import { ApiError } from "../../api/client";
 import { Layout } from "../../components/Layout";
@@ -9,11 +9,20 @@ import { ErrorMessage } from "../../components/ErrorMessage";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
 import { formatDate } from "../../lib/datetime";
 import { formatMoney } from "../../lib/money";
-import { useLoad } from "../../lib/useLoad";
+import { usePlanContext } from "../../lib/planContext";
 import { useRouter } from "../../lib/router";
-import { Check, Crown, Lock } from "lucide-react";
+import { Check, Crown, Lock, Ticket } from "lucide-react";
 
 const FREE_FEATURES = [
   "До 3 активних учнів",
@@ -35,14 +44,23 @@ const ERRORS: Record<string, string> = {
   no_active_subscription: "Активної підписки немає.",
 };
 
+const PROMO_ERRORS: Record<string, string> = {
+  promo_not_found: "Промокод не знайдено.",
+  promo_used_up: "Цей промокод вже вичерпано.",
+  promo_already_used: "Ви вже активували цей промокод.",
+};
+
 export function BillingPage() {
   const { token } = useSession();
   const { navigate } = useRouter();
   const [period, setPeriod] = useState<BillingPeriod>("month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const load = useCallback(() => getPlan(token), [token]);
-  const { data: plan, setData, loading, error: loadError } = useLoad(load);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoError, setPromoError] = useState("");
+  const { plan, planLoading, setPlan } = usePlanContext();
   const justPaid = new URLSearchParams(window.location.search).get("checkout") === "done";
 
   const pay = async () => {
@@ -68,7 +86,7 @@ export function BillingPage() {
     setBusy(true);
     setError("");
     try {
-      setData(await cancelSubscription(token));
+      setPlan(await cancelSubscription(token));
     } catch (e) {
       setError(ERRORS[e instanceof ApiError ? String(e.detail) : ""] ?? "Не вдалося скасувати");
     } finally {
@@ -76,21 +94,41 @@ export function BillingPage() {
     }
   };
 
-  if (loading)
+  const applyPromo = async () => {
+    setPromoBusy(true);
+    setPromoError("");
+    try {
+      const updated = await redeemPromo(token, promoCode);
+      setPlan(updated);
+      setPromoOpen(false);
+      setPromoCode("");
+    } catch (e) {
+      setPromoError(
+        PROMO_ERRORS[e instanceof ApiError ? String(e.detail) : ""] ??
+          "Не вдалося активувати промокод"
+      );
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+
+  if (planLoading)
     return (
       <Layout>
         <LoadingSpinner />
       </Layout>
     );
-  if (loadError || !plan)
+  if (!plan)
     return (
       <Layout>
-        <ErrorMessage message={loadError || "Не вдалося завантажити тариф"} />
+        <ErrorMessage message="Не вдалося завантажити тариф" />
       </Layout>
     );
 
   const isPro = plan.plan === "pro";
-  const renewing = isPro && plan.subscription_status === "active" && !plan.cancel_pending;
+  const fromPromo = plan.pro_source === "promo";
+  const renewing =
+    isPro && !fromPromo && plan.subscription_status === "active" && !plan.cancel_pending;
   const price = plan.prices[period];
   const monthlyEquivalent = Math.round(plan.prices.year / 12);
 
@@ -115,41 +153,70 @@ export function BillingPage() {
           </div>
         )}
 
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Ваш тариф</p>
-              <p className="text-2xl font-bold flex items-center gap-2">
-                {isPro ? (
-                  <>
-                    <Crown className="h-6 w-6 text-amber-500" /> Pro
-                  </>
-                ) : (
-                  "Безкоштовний"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <Card className="sm:flex-1">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Ваш тариф</p>
+                <p className="text-2xl font-bold flex items-center gap-2">
+                  {isPro ? (
+                    <>
+                      <Crown className="h-6 w-6 text-amber-500" /> Pro
+                    </>
+                  ) : (
+                    "Безкоштовний"
+                  )}
+                </p>
+                {isPro && plan.pro_until && (
+                  <p className="text-sm">
+                    {fromPromo ? (
+                      <>Pro до {formatDate(plan.pro_until)} (промокод)</>
+                    ) : (
+                      <>
+                        {renewing ? "Наступне списання" : "Оплачено до"}{" "}
+                        {formatDate(plan.pro_until)}
+                        {plan.period && ` · ${plan.period === "month" ? "щомісяця" : "щороку"}`}
+                      </>
+                    )}
+                  </p>
                 )}
-              </p>
-              {isPro && plan.pro_until && (
-                <p className="text-sm">
-                  {renewing ? "Наступне списання" : "Оплачено до"} {formatDate(plan.pro_until)}
-                  {plan.period && ` · ${plan.period === "month" ? "щомісяця" : "щороку"}`}
-                </p>
+                {plan.cancel_pending && !fromPromo && (
+                  <p className="text-sm text-muted-foreground">Скасування надіслано в LiqPay…</p>
+                )}
+                {!isPro && (
+                  <p className="text-sm text-muted-foreground">
+                    Активних учнів: {plan.active_students} з {plan.free_student_limit}
+                  </p>
+                )}
+              </div>
+              {renewing && (
+                <Button variant="outline" disabled={busy} onClick={() => void cancel()}>
+                  Скасувати автопродовження
+                </Button>
               )}
-              {plan.cancel_pending && (
-                <p className="text-sm text-muted-foreground">Скасування надіслано в LiqPay…</p>
-              )}
-              {!isPro && (
-                <p className="text-sm text-muted-foreground">
-                  Активних учнів: {plan.active_students} з {plan.free_student_limit}
-                </p>
-              )}
+            </CardContent>
+          </Card>
+
+          <button
+            type="button"
+            className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-primary/40 bg-primary/5 p-6 text-center transition-colors hover:border-primary/70 hover:bg-primary/10 sm:w-1/3 dark:bg-primary/10 dark:hover:bg-primary/15"
+            onClick={() => {
+              setPromoCode("");
+              setPromoError("");
+              setPromoOpen(true);
+            }}
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary group-hover:bg-primary/25 dark:bg-primary/20 dark:group-hover:bg-primary/30">
+              <Ticket className="h-6 w-6" />
             </div>
-            {renewing && (
-              <Button variant="outline" disabled={busy} onClick={() => void cancel()}>
-                Скасувати автопродовження
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+            <div className="space-y-1">
+              <p className="text-lg font-semibold">
+                {fromPromo ? "Додати ще промокод" : "Маю промокод"}
+              </p>
+              <p className="text-sm text-muted-foreground">Активуйте Pro за промокодом</p>
+            </div>
+          </button>
+        </div>
 
         {!renewing && (
           <>
@@ -222,11 +289,16 @@ export function BillingPage() {
                   >
                     {isPro ? "Продовжити Pro" : "Оформити Pro"}
                   </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Оплата карткою через LiqPay. Списується автоматично щоперіоду; скасувати можна
-                    будь-коли тут, оплачений час залишиться.
-                    {plan.billing_mode === "demo" && " Зараз демо-режим: справжніх списань немає."}
-                  </p>
+                  {plan.billing_mode === "disabled" ? (
+                    <p className="text-xs text-muted-foreground">Онлайн-оплата скоро з'явиться.</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Оплата карткою через LiqPay. Списується автоматично щоперіоду; скасувати можна
+                      будь-коли тут, оплачений час залишиться.
+                      {plan.billing_mode === "demo" &&
+                        " Зараз демо-режим: справжніх списань немає."}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -234,6 +306,36 @@ export function BillingPage() {
         )}
         {error && <ErrorMessage message={error} />}
       </div>
+
+      <Dialog open={promoOpen} onOpenChange={setPromoOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Промокод</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              placeholder="Введіть промокод"
+              disabled={promoBusy}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && promoCode.trim()) void applyPromo();
+              }}
+            />
+            {promoError && <p className="text-sm text-destructive">{promoError}</p>}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={promoBusy}>
+                Скасувати
+              </Button>
+            </DialogClose>
+            <Button onClick={() => void applyPromo()} disabled={promoBusy || !promoCode.trim()}>
+              Застосувати
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

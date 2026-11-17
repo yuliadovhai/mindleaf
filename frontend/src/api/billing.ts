@@ -23,6 +23,13 @@ export function demoPay(token: string, orderId: string): Promise<Plan> {
   });
 }
 
+export function redeemPromo(token: string, code: string): Promise<Plan> {
+  return apiFetch<Plan>(token, "/api/billing/promo", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
 /** LiqPay checkout is a plain form POST of `data` and `signature`. */
 export function submitToLiqPay(form: CheckoutForm): void {
   const el = document.createElement("form");
