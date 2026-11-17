@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useSession } from "../../auth/session";
 import { useMe } from "../../auth/me";
 import { listMyLessons, listMyStudents } from "../../api/portal";
@@ -8,6 +8,7 @@ import { Layout } from "../../components/Layout";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { ErrorMessage } from "../../components/ErrorMessage";
 import { PortalLessonRow } from "../../components/PortalLessonRow";
+import { TelegramDialog } from "../../components/TelegramDialog";
 import { AssignmentStatusBadge } from "../../components/AssignmentStatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -15,7 +16,14 @@ import { formatMoney } from "../../lib/money";
 import { formatWhenInline, isTodayKyiv } from "../../lib/datetime";
 import { useLoad } from "../../lib/useLoad";
 import { useRouter } from "../../lib/router";
-import { BookOpen, CalendarDays, ChevronRight, ListChecks, UserRound } from "lucide-react";
+import {
+  BellRing,
+  BookOpen,
+  CalendarDays,
+  ChevronRight,
+  ListChecks,
+  UserRound,
+} from "lucide-react";
 
 const DAY = 24 * 3600 * 1000;
 
@@ -33,6 +41,7 @@ export function PortalHomePage() {
   const { me } = useMe();
   const { navigate } = useRouter();
   const isParent = me.role === "parent";
+  const [telegramOpen, setTelegramOpen] = useState(false);
 
   const load = useCallback(async () => {
     const now = new Date();
@@ -193,6 +202,25 @@ export function PortalHomePage() {
             </Card>
           )}
         </div>
+
+        {me.telegram_available && !me.telegram_connected && (
+          <button
+            onClick={() => setTelegramOpen(true)}
+            className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-accent/50 px-4 py-3 text-left transition-colors hover:bg-accent"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <BellRing className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">Нагадування в Telegram</span>
+              <span className="block text-xs text-muted-foreground">
+                За годину до заняття з посиланням і за добу до дедлайнів
+              </span>
+            </span>
+            <span className="text-sm font-medium text-primary">Підключити</span>
+          </button>
+        )}
+        {telegramOpen && <TelegramDialog onClose={() => setTelegramOpen(false)} />}
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">

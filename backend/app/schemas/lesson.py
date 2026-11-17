@@ -6,6 +6,7 @@ from pydantic import Field
 from app.models import LessonStatus, Role
 from app.schemas.common import (
     InDatetime,
+    MeetingUrl,
     Money,
     OutDatetime,
     RequestModel,
@@ -28,6 +29,7 @@ class LessonCreate(RequestModel):
     topic: Topic | None = None
     homework: LongText | None = None
     notes: LongText | None = None
+    meeting_url: MeetingUrl = None
 
 
 class LessonUpdate(RequestModel):
@@ -39,6 +41,7 @@ class LessonUpdate(RequestModel):
     topic: Topic | None = None
     homework: LongText | None = None
     notes: LongText | None = None
+    meeting_url: MeetingUrl = None
 
 
 class LessonStatusUpdate(RequestModel):
@@ -56,13 +59,19 @@ class LessonOut(ResponseModel):
     topic: str | None
     homework: str | None
     notes: str | None
+    meeting_url: str | None = Field(
+        description="Посилання лише цього заняття (замість посилання учня)"
+    )
+    join_url: str | None = Field(
+        description="Куди підключатися: посилання заняття або, якщо його немає, учня"
+    )
     cancelled_at: OutDatetime | None
     cancelled_by_role: Role | None = Field(description="Хто скасував: tutor або parent")
     created_at: OutDatetime
 
     @classmethod
     def of(cls, lesson: Any) -> "LessonOut":
-        derived = {"student_full_name", "cancelled_by_role"}
+        derived = {"student_full_name", "cancelled_by_role", "join_url"}
         fields = {
             name: getattr(lesson, name)
             for name in cls.model_fields
@@ -74,5 +83,6 @@ class LessonOut(ResponseModel):
                 **fields,
                 "student_full_name": lesson.student.full_name,
                 "cancelled_by_role": canceller.role if canceller else None,
+                "join_url": lesson.meeting_url or lesson.student.meeting_url,
             }
         )

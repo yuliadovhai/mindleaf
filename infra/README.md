@@ -72,6 +72,32 @@
 2. `https://mindleaf-web.onrender.com` → **Увійти / Зареєструватися** → **Sign up** → код з пошти → вибір ролі «Репетитор».
 3. У кабінеті репетитора додайте учня й видайте код у картці учня. В іншому браузері (або інкогніто) зареєструйтеся ще раз і введіть цей код — відкриється кабінет учня чи батьків.
 
+## Нагадування в Telegram
+
+Бот пише кожному, хто натиснув у MindLeaf «Підключити Telegram»: за годину до заняття (з посиланням на Zoom/Meet) і за добу до дедлайну ДЗ чи тесту. Розсилку раз на 10 хвилин запускає [`.github/workflows/reminders.yml`](../.github/workflows/reminders.yml); що вже надіслано, backend пам'ятає (таблиця `reminders_sent`), тож повторний запуск нічого не дублює.
+
+1. **Бот.** У Telegram відкрийте [@BotFather](https://t.me/BotFather) → `/newbot` → назва `MindLeaf` → ім'я, що закінчується на `bot` (наприклад, `mindleaf_tutor_bot`). BotFather дасть **токен** вигляду `123456789:AA…` — це секрет.
+2. **Render → mindleaf-api → Environment:**
+
+   | Змінна | Значення |
+   | --- | --- |
+   | `TELEGRAM_BOT_TOKEN` | токен від BotFather |
+   | `TELEGRAM_BOT_USERNAME` | ім'я бота без `@` |
+   | `TELEGRAM_WEBHOOK_SECRET` | будь-який довгий випадковий рядок (Blueprint генерує сам) |
+   | `CRON_TOKEN` | будь-який довгий випадковий рядок (Blueprint генерує сам) |
+
+   **Save, rebuild, and deploy.**
+3. **Підключити бота до сервера** (один раз, після деплою): Telegram має знати, куди пересилати повідомлення бота.
+
+   ```sh
+   curl -X POST -H "X-Cron-Token: <CRON_TOKEN>" https://mindleaf-api.onrender.com/api/internal/telegram/webhook
+   ```
+
+   Відповідь `{"ok":true,…}` — готово.
+4. **GitHub → репозиторій → Settings → Secrets and variables → Actions → New repository secret:** `API_URL` = `https://mindleaf-api.onrender.com`, `CRON_TOKEN` = те саме значення, що на Render. Перевірити: **Actions → reminders → Run workflow**.
+
+Без `TELEGRAM_BOT_TOKEN` кнопки підключення в інтерфейсі просто немає, а `/api/internal/*` відповідає 404.
+
 ## Оновлення
 
 Кожен `git push` у `main` перезбирає обидва сервіси. Backend при старті сам накочує нові міграції Alembic.

@@ -34,6 +34,9 @@ class PortalLessonOut(ResponseModel):
     topic: str | None
     homework: str | None
     price: int | None = Field(description="Лише для батьків, копійки")
+    join_url: str | None = Field(
+        description="Посилання на онлайн-заняття (Zoom, Meet), якщо репетитор його дав"
+    )
     cancelled_at: OutDatetime | None
     cancelled_by_role: Role | None
     can_cancel: bool = Field(description="Чи може поточний користувач скасувати")
@@ -55,6 +58,7 @@ class PortalLessonOut(ResponseModel):
             topic=lesson.topic,
             homework=lesson.homework,
             price=lesson.price if show_price else None,
+            join_url=lesson.meeting_url or lesson.student.meeting_url,
             cancelled_at=lesson.cancelled_at,
             cancelled_by_role=canceller.role if canceller else None,
             can_cancel=can_cancel,

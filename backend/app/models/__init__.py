@@ -29,6 +29,7 @@ from app.models.quiz import (
     QuizQuestion,
     QuizStatus,
 )
+from app.models.reminder import ReminderKind, ReminderSent
 from app.models.student import Student
 from app.models.user import Role, User
 
@@ -56,6 +57,8 @@ __all__ = [
     "QuizQuestion",
     "QuizStatus",
     "Relation",
+    "ReminderKind",
+    "ReminderSent",
     "Role",
     "Student",
     "StudentLink",

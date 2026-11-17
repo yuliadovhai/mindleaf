@@ -1,20 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.db import get_session
 from app.models import User
 from app.schemas.common import ErrorResponse
-from app.schemas.user import RoleChoice, UserOut, UserUpdate
-from app.services import users
+from app.schemas.user import RoleChoice, TelegramLinkOut, UserOut, UserUpdate
+from app.services import telegram, users
 
 router = APIRouter(tags=["me"])
 
 
 @router.get("/me", response_model=UserOut)
-def read_me(user: User = Depends(get_current_user)) -> User:
+def read_me(user: User = Depends(get_current_user)) -> UserOut:
     """The signed-in user; created without a role on the first call."""
-    return user
+    return UserOut.of(user)
 
 
 @router.patch(
@@ -26,11 +26,11 @@ def update_me(
     body: UserUpdate,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
-) -> User:
+) -> UserOut:
     fields = {
         k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None
     }
-    return users.update_profile(session, user, fields=fields)
+    return UserOut.of(users.update_profile(session, user, fields=fields))
 
 
 @router.post(
@@ -42,6 +42,28 @@ def choose_role(
     body: RoleChoice,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
-) -> User:
+) -> UserOut:
     """Become a tutor. Students and parents get their role from an invite code."""
-    return users.become_tutor(session, user)
+    return UserOut.of(users.become_tutor(session, user))
+
+
+@router.post(
+    "/me/telegram",
+    response_model=TelegramLinkOut,
+    responses={409: {"model": ErrorResponse, "description": "telegram_disabled"}},
+)
+def link_telegram(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> TelegramLinkOut:
+    """A link that opens the bot; pressing Start there connects this account."""
+    return TelegramLinkOut(url=telegram.link_url(session, user))
+
+
+@router.delete("/me/telegram", status_code=status.HTTP_204_NO_CONTENT)
+def unlink_telegram(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    """Stop Telegram reminders for this account."""
+    telegram.disconnect(session, user)

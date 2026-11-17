@@ -58,6 +58,7 @@ STUDENTS = [
         "parent_name": "Ірина Коваль",
         "parent_phone": "+380671112233",
         "notes": "Готується до НМТ",
+        "meeting_url": "https://meet.google.com/abc-defg-hij",
     },
     {
         "full_name": "Андрій Шевченко",

@@ -53,6 +53,16 @@ services:
       # No Bedrock here: written quiz answers go straight to the tutor.
       - key: AI_GRADER
         value: "off"
+      # Telegram reminders (infra/README.md, "Нагадування в Telegram").
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      # The scheduler (.github/workflows/reminders.yml) sends it as X-Cron-Token.
+      - key: CRON_TOKEN
+        generateValue: true
 
   # React frontend as a static site; every path falls back to index.html.
   - type: web

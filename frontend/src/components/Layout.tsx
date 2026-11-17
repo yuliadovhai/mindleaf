@@ -8,7 +8,9 @@ import { useTheme } from "../lib/theme";
 import { ROLE_LABEL } from "../lib/labels";
 import { Logo } from "./Logo";
 import { PlanBanner } from "./PlanBanner";
+import { TelegramDialog } from "./TelegramDialog";
 import {
+  BellRing,
   BookOpen,
   CalendarDays,
   CreditCard,
@@ -112,9 +114,11 @@ function ProfilePanel({ plan, onNavigate }: { plan: Plan | null; onNavigate?: ()
   const { me } = useMe();
   const { theme, toggle } = useTheme();
   const name = me.name ?? me.email ?? "";
+  const [telegramOpen, setTelegramOpen] = useState(false);
 
   return (
     <div className="space-y-1">
+      {telegramOpen && <TelegramDialog onClose={() => setTelegramOpen(false)} />}
       <div className="flex items-center gap-3 px-2 py-2">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary">
           {initials(name) || "?"}
@@ -146,6 +150,24 @@ function ProfilePanel({ plan, onNavigate }: { plan: Plan | null; onNavigate?: ()
           <Crown className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left">Тариф</span>
           <PlanChip plan={plan} />
+        </button>
+      )}
+      {me.telegram_available && (
+        <button
+          onClick={() => setTelegramOpen(true)}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+        >
+          <BellRing className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">Нагадування</span>
+          {me.telegram_connected ? (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+              Telegram
+            </span>
+          ) : (
+            <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
+              Підключити
+            </span>
+          )}
         </button>
       )}
       <div className="flex items-center gap-1">

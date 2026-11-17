@@ -7,6 +7,10 @@ export interface Me {
   email: string | null;
   name: string | null;
   cancel_notice_hours: number;
+  /** A Telegram chat gets the reminders. */
+  telegram_connected: boolean;
+  /** The server has a bot configured (otherwise no "connect" button). */
+  telegram_available: boolean;
   created_at: string;
 }
 
@@ -23,6 +27,8 @@ export interface Student {
   subject: string | null;
   default_price: number;
   notes: string | null;
+  /** The usual Zoom / Meet link for this student's lessons. */
+  meeting_url: string | null;
   archived: boolean;
   created_at: string;
   balance: number;
@@ -37,6 +43,7 @@ export interface StudentCreate {
   parent_phone?: string | null;
   subject?: string | null;
   notes?: string | null;
+  meeting_url?: string | null;
 }
 
 export interface StudentUpdate {
@@ -48,6 +55,7 @@ export interface StudentUpdate {
   parent_phone?: string | null;
   subject?: string | null;
   notes?: string | null;
+  meeting_url?: string | null;
   archived?: boolean;
 }
 
@@ -65,6 +73,10 @@ export interface Lesson {
   topic: string | null;
   homework: string | null;
   notes: string | null;
+  /** This lesson's own link; null = the student's usual one applies. */
+  meeting_url: string | null;
+  /** Where to join: this lesson's link or the student's. */
+  join_url: string | null;
   cancelled_at: string | null;
   cancelled_by_role: Role | null;
   created_at: string;
@@ -79,6 +91,7 @@ export interface LessonCreate {
   topic?: string | null;
   homework?: string | null;
   notes?: string | null;
+  meeting_url?: string | null;
 }
 
 export interface LessonUpdate {
@@ -88,6 +101,7 @@ export interface LessonUpdate {
   topic?: string | null;
   homework?: string | null;
   notes?: string | null;
+  meeting_url?: string | null;
 }
 
 export interface LessonStatusUpdate {
@@ -188,6 +202,8 @@ export interface PortalLesson {
   topic: string | null;
   homework: string | null;
   price: number | null;
+  /** Zoom / Meet link, if the tutor gave one. */
+  join_url: string | null;
   cancelled_at: string | null;
   cancelled_by_role: Role | null;
   can_cancel: boolean;

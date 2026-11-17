@@ -13,6 +13,7 @@ from app.api import (
     lessons,
     materials,
     me,
+    notifications,
     payments,
     portal,
     quizzes,
@@ -119,5 +120,7 @@ api.include_router(files.router)
 api.include_router(internal.router)
 api.include_router(internal.generation_router)
 api.include_router(internal.billing_router)
+api.include_router(notifications.webhook_router)
+api.include_router(notifications.internal_router)
 api.include_router(dashboard.router, responses={**UNAUTHORIZED, **FORBIDDEN})
 app.include_router(api)

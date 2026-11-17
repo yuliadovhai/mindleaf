@@ -40,6 +40,8 @@ class Student(Base):
     subject: Mapped[str | None] = mapped_column(Text)
     default_price: Mapped[int] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(Text)
+    # The usual Zoom/Meet link for this student's lessons.
+    meeting_url: Mapped[str | None] = mapped_column(Text)
     archived: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )

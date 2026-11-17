@@ -59,6 +59,7 @@ export function LessonForm({
   const [topic, setTopic] = useState(initial?.topic ?? "");
   const [homework, setHomework] = useState(initial?.homework ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [meetingUrl, setMeetingUrl] = useState(initial?.meeting_url ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -96,6 +97,7 @@ export function LessonForm({
           topic: nullOrStr(topic),
           homework: nullOrStr(homework),
           notes: nullOrStr(notes),
+          meeting_url: nullOrStr(meetingUrl),
         };
         const saved = await updateLesson(token, initial.id, data);
         onSaved(saved);
@@ -109,6 +111,7 @@ export function LessonForm({
           topic: nullOrStr(topic),
           homework: nullOrStr(homework),
           notes: nullOrStr(notes),
+          meeting_url: nullOrStr(meetingUrl),
         };
         const saved = await createLesson(token, data);
         onSaved(saved);
@@ -231,6 +234,26 @@ export function LessonForm({
               maxLength={2000}
               rows={2}
             />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="lf-meeting">Посилання на це заняття</Label>
+            <Input
+              id="lf-meeting"
+              type="url"
+              inputMode="url"
+              placeholder={
+                students.find((st) => st.id === studentId)?.meeting_url ??
+                "https://meet.google.com/…"
+              }
+              value={meetingUrl}
+              onChange={(e) => setMeetingUrl(e.target.value)}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground">
+              {students.find((st) => st.id === studentId)?.meeting_url
+                ? "Порожньо — візьметься постійне посилання з картки учня."
+                : "Можна вказати один раз у картці учня — тоді воно підставлятиметься саме."}
+            </p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="lf-notes">Нотатки</Label>

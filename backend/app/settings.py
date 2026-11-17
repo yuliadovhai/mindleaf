@@ -50,6 +50,14 @@ class Settings:
     liqpay_sandbox: bool
     # The site's origin: LiqPay sends the payer back here after checkout.
     site_url: str
+    # Telegram reminders. Without a bot token the feature is off (409 on linking).
+    telegram_bot_token: str
+    telegram_bot_username: str
+    # Telegram sends it back in X-Telegram-Bot-Api-Secret-Token on every webhook.
+    telegram_webhook_secret: str
+    # Shared secret of the scheduler (GitHub Actions) that triggers reminders;
+    # empty disables /api/internal/reminders.
+    cron_token: str
     in_lambda: bool
 
     @property
@@ -83,6 +91,12 @@ class Settings:
             liqpay_private_key=os.environ.get("LIQPAY_PRIVATE_KEY", ""),
             liqpay_sandbox=os.environ.get("LIQPAY_SANDBOX", "0") == "1",
             site_url=os.environ.get("SITE_URL", "http://localhost:5173").rstrip("/"),
+            telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""),
+            telegram_bot_username=os.environ.get("TELEGRAM_BOT_USERNAME", "").lstrip(
+                "@"
+            ),
+            telegram_webhook_secret=os.environ.get("TELEGRAM_WEBHOOK_SECRET", ""),
+            cron_token=os.environ.get("CRON_TOKEN", ""),
             in_lambda=bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME")),
         )
 

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "../ui/button";
 import { LessonStatusBadge } from "../LessonStatusBadge";
 import { dayLong, hhmm, lessonClock } from "./lessonTime";
-import { Check, CircleSlash, Pencil, RotateCcw, Trash2, User, UserX } from "lucide-react";
+import { Check, CircleSlash, Pencil, RotateCcw, Trash2, User, UserX, Video } from "lucide-react";
 
 interface LessonDialogProps {
   lesson: Lesson;
@@ -81,6 +81,17 @@ export function LessonDialog({ lesson, onClose, onChanged, onEdit }: LessonDialo
               <span className="text-muted-foreground">ДЗ: </span>
               {lesson.homework}
             </p>
+          )}
+          {lesson.join_url && lesson.status === "planned" && (
+            <a
+              href={lesson.join_url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 font-medium text-primary hover:underline"
+            >
+              <Video className="h-4 w-4 shrink-0" />
+              <span className="truncate">Приєднатися до заняття</span>
+            </a>
           )}
           {lesson.notes && (
             <p className="whitespace-pre-wrap rounded-xl bg-muted px-3 py-2 text-muted-foreground">

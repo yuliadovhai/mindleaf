@@ -1,9 +1,17 @@
 """Types shared by every schema."""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+)
 
 from app.settings import TIMEZONE
 
@@ -12,6 +20,26 @@ MAX_MONEY = 100_000_000  # 1 000 000 грн
 Money = Annotated[int, Field(ge=0, le=MAX_MONEY, description="Сума в копійках")]
 PositiveMoney = Annotated[
     int, Field(ge=1, le=MAX_MONEY, description="Сума в копійках, більша за 0")
+]
+
+
+def _blank_to_none(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.strip() or None
+    return value
+
+
+def _web_link(value: str | None) -> str | None:
+    if value is not None and not value.lower().startswith(("https://", "http://")):
+        raise ValueError("must start with https:// or http://")
+    return value
+
+
+# A Zoom / Google Meet / Teams link; "" clears it.
+MeetingUrl = Annotated[
+    Annotated[str, Field(max_length=500)] | None,
+    BeforeValidator(_blank_to_none),
+    AfterValidator(_web_link),
 ]
 
 # Requests: an ISO 8601 datetime with an offset (naive -> 422).

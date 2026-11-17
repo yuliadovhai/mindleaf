@@ -3,7 +3,13 @@ from typing import Annotated, Any, Self
 
 from pydantic import BeforeValidator, Field, model_validator
 
-from app.schemas.common import Money, OutDatetime, RequestModel, ResponseModel
+from app.schemas.common import (
+    MeetingUrl,
+    Money,
+    OutDatetime,
+    RequestModel,
+    ResponseModel,
+)
 
 
 def _blank_to_none(value: Any) -> Any:
@@ -29,6 +35,7 @@ class StudentCreate(RequestModel):
     parent_phone: OptionalText(32) = None
     subject: OptionalText(100) = None
     notes: OptionalText(2000) = None
+    meeting_url: MeetingUrl = None
 
 
 class StudentUpdate(RequestModel):
@@ -43,6 +50,7 @@ class StudentUpdate(RequestModel):
     parent_phone: OptionalText(32) = None
     subject: OptionalText(100) = None
     notes: OptionalText(2000) = None
+    meeting_url: MeetingUrl = None
 
     @model_validator(mode="after")
     def _required_fields_are_not_null(self) -> Self:
@@ -62,6 +70,7 @@ class StudentOut(ResponseModel):
     subject: str | None
     default_price: int = Field(description="Ціна заняття за замовчуванням, копійки")
     notes: str | None
+    meeting_url: str | None = Field(description="Постійне посилання на заняття")
     archived: bool
     created_at: OutDatetime
     balance: int = Field(description="Оплати − проведені заняття, копійки; < 0 — борг")

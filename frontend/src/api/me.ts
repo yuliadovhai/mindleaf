@@ -25,3 +25,12 @@ export function redeemInvite(token: string, code: string): Promise<Redeemed> {
     body: JSON.stringify({ code }),
   });
 }
+
+/** A t.me link that opens the bot; pressing Start there connects this account. */
+export function linkTelegram(token: string): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>(token, "/api/me/telegram", { method: "POST" });
+}
+
+export function unlinkTelegram(token: string): Promise<void> {
+  return apiFetch<void>(token, "/api/me/telegram", { method: "DELETE" });
+}

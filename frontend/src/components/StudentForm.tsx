@@ -37,6 +37,7 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
     initial ? kopecksToInput(initial.default_price) : ""
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [meetingUrl, setMeetingUrl] = useState(initial?.meeting_url ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -61,6 +62,7 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
           parent_phone: nullOrStr(parentPhone),
           subject: nullOrStr(subject),
           notes: nullOrStr(notes),
+          meeting_url: nullOrStr(meetingUrl),
         };
         const saved = await updateStudent(token, initial.id, data);
         onSaved(saved);
@@ -74,6 +76,7 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
           parent_phone: nullOrStr(parentPhone),
           subject: nullOrStr(subject),
           notes: nullOrStr(notes),
+          meeting_url: nullOrStr(meetingUrl),
         };
         const saved = await createStudent(token, data);
         onSaved(saved);
@@ -174,6 +177,22 @@ export function StudentForm({ open, onClose, onSaved, initial }: StudentFormProp
                 maxLength={32}
               />
             </div>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="sf-meeting">Посилання на заняття</Label>
+            <Input
+              id="sf-meeting"
+              type="url"
+              inputMode="url"
+              placeholder="https://meet.google.com/… або https://zoom.us/j/…"
+              value={meetingUrl}
+              onChange={(e) => setMeetingUrl(e.target.value)}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground">
+              Постійне посилання на онлайн-заняття: учень і батьки побачать кнопку «Приєднатися», а
+              Telegram-нагадування прийде разом з ним.
+            </p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="sf-notes">Нотатки</Label>

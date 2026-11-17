@@ -8,7 +8,7 @@ import { formatLessonWhen, formatWhenInline, isTodayKyiv } from "../lib/datetime
 import { formatMoney } from "../lib/money";
 import { LessonStatusBadge } from "./LessonStatusBadge";
 import { Button } from "./ui/button";
-import { BookOpen, XCircle } from "lucide-react";
+import { BookOpen, Video, XCircle } from "lucide-react";
 
 const CANCEL_ERRORS: Record<string, string> = {
   cancel_too_late: "Уже пізно скасовувати — напишіть репетитору.",
@@ -44,6 +44,9 @@ export function PortalLessonRow({ lesson, showStudent, onChanged }: Props) {
   };
 
   const today = lesson.status === "planned" && isTodayKyiv(lesson.starts_at);
+  // The link stays until the lesson is over, so a late student can still join.
+  const ends = new Date(lesson.starts_at).getTime() + lesson.duration_minutes * 60_000;
+  const canJoin = lesson.status === "planned" && Boolean(lesson.join_url) && ends > Date.now();
 
   return (
     <div
@@ -81,6 +84,14 @@ export function PortalLessonRow({ lesson, showStudent, onChanged }: Props) {
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        {canJoin && (
+          <Button size="sm" variant={today ? "default" : "outline"} className="gap-1.5" asChild>
+            <a href={lesson.join_url!} target="_blank" rel="noreferrer">
+              <Video className="h-4 w-4" />
+              Приєднатися
+            </a>
+          </Button>
+        )}
         {lesson.homework && (
           <Button
             size="sm"

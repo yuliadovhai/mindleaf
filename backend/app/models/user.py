@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, Text, func, text
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Integer, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -36,6 +36,10 @@ class User(Base):
     cancel_notice_hours: Mapped[int] = mapped_column(
         Integer, default=24, server_default=text("24")
     )
+    # Telegram reminders: the chat the bot writes to, and the one-time token that
+    # links it (sent to the bot as "/start <token>").
+    telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
+    telegram_link_token: Mapped[str | None] = mapped_column(Text, unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

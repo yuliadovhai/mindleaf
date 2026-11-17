@@ -54,6 +54,8 @@ class Lesson(Base):
     topic: Mapped[str | None] = mapped_column(Text)
     homework: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
+    # Overrides the student's meeting_url for this one lesson.
+    meeting_url: Mapped[str | None] = mapped_column(Text)
     # Who set status "cancelled" (the tutor or a parent) and when.
     cancelled_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
