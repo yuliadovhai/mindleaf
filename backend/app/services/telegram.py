@@ -4,6 +4,7 @@ Tests replace `send_message` (see tests/test_reminders.py), so nothing here runs
 without a real bot token.
 """
 
+import hashlib
 import json
 import logging
 import secrets
@@ -41,10 +42,14 @@ def _call(method: str, payload: dict) -> dict:
         with urllib.request.urlopen(request, timeout=10) as response:
             return json.loads(response.read())
     except urllib.error.HTTPError as error:
-        if error.code == 403:
+        if error.code == 403 and method == "sendMessage":
             raise ChatGone from error
-        log.warning("telegram %s failed: %s %s", method, error.code, error.read()[:300])
-        raise
+        try:
+            description = json.loads(error.read()).get("description", "")
+        except ValueError:
+            description = ""
+        log.warning("telegram %s failed: %s %s", method, error.code, description)
+        raise TelegramError(error.code, description) from error
 
 
 def send_message(chat_id: int, text: str) -> None:
@@ -60,12 +65,31 @@ def send_message(chat_id: int, text: str) -> None:
     )
 
 
+class TelegramError(Exception):
+    """Telegram refused a call; `description` is its own explanation."""
+
+    def __init__(self, status: int, description: str) -> None:
+        super().__init__(description)
+        self.status = status
+        self.description = description
+
+
+def webhook_secret() -> str:
+    """What Telegram echoes in X-Telegram-Bot-Api-Secret-Token.
+
+    Telegram allows only A-Z, a-z, 0-9, "_" and "-" there, while a generated
+    TELEGRAM_WEBHOOK_SECRET may hold "+", "/" or "=". Its hex digest is always
+    valid and still secret.
+    """
+    return hashlib.sha256(settings.telegram_webhook_secret.encode()).hexdigest()
+
+
 def set_webhook(url: str) -> dict:
     return _call(
         "setWebhook",
         {
             "url": url,
-            "secret_token": settings.telegram_webhook_secret,
+            "secret_token": webhook_secret(),
             "allowed_updates": ["message"],
         },
     )

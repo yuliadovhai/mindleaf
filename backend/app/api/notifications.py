@@ -36,7 +36,7 @@ def require_cron(
 
 
 def get_webhook_secret() -> str:
-    return settings.telegram_webhook_secret
+    return telegram.webhook_secret() if settings.telegram_webhook_secret else ""
 
 
 @webhook_router.post("/webhook", include_in_schema=False)
@@ -86,4 +86,11 @@ def setup_webhook() -> dict:
     """Tell Telegram to deliver the bot's messages to PUBLIC_API_URL."""
     if not telegram.enabled() or not settings.telegram_webhook_secret:
         raise HTTPException(status.HTTP_409_CONFLICT, "telegram_disabled")
-    return telegram.set_webhook(f"{settings.public_api_url}/api/telegram/webhook")
+    try:
+        return telegram.set_webhook(f"{settings.public_api_url}/api/telegram/webhook")
+    except telegram.TelegramError as error:
+        # E.g. 401 "Unauthorized" for a wrong TELEGRAM_BOT_TOKEN: say so.
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            f"telegram: {error.status} {error.description}".strip(),
+        ) from None

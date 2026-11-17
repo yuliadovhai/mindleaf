@@ -1,6 +1,7 @@
 """Meeting links on lessons and Telegram reminders (bot linking, scheduler run)."""
 
 import dataclasses
+import hashlib
 from datetime import timedelta
 
 import pytest
@@ -10,7 +11,8 @@ from app.services import clock, telegram
 from tests.factories import NOW, create_lesson, iso
 
 CRON = {"X-Cron-Token": "cron-secret"}
-HOOK = {"X-Telegram-Bot-Api-Secret-Token": "hook-secret"}
+# Telegram echoes the hex digest of TELEGRAM_WEBHOOK_SECRET (see webhook_secret).
+HOOK = {"X-Telegram-Bot-Api-Secret-Token": hashlib.sha256(b"hook+/=secret").hexdigest()}
 
 
 @pytest.fixture
@@ -20,7 +22,7 @@ def bot(monkeypatch):
         telegram.settings,
         telegram_bot_token="123:abc",
         telegram_bot_username="mindleaf_test_bot",
-        telegram_webhook_secret="hook-secret",
+        telegram_webhook_secret="hook+/=secret",
         cron_token="cron-secret",
     )
     monkeypatch.setattr(telegram, "settings", configured)
@@ -231,3 +233,29 @@ def test_blocked_bot_unlinks_the_chat(bot, family, as_tutor, as_user, monkeypatc
     result = tutor.post("/api/internal/reminders/run", headers=CRON).json()
     assert result["errors"] == 1
     assert family["kid"].telegram_chat_id is None
+
+
+# ---------- pointing the bot at the server ----------
+
+
+def test_webhook_setup_sends_a_secret_telegram_accepts(bot, client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        telegram, "_call", lambda method, payload: calls.append(payload) or {"ok": True}
+    )
+    response = client.post("/api/internal/telegram/webhook", headers=CRON)
+    assert response.status_code == 200
+    secret = calls[0]["secret_token"]
+    assert secret == HOOK["X-Telegram-Bot-Api-Secret-Token"]
+    assert secret.isalnum()  # Telegram allows only A-Z a-z 0-9 _ -
+    assert calls[0]["url"].endswith("/api/telegram/webhook")
+
+
+def test_webhook_setup_explains_a_telegram_refusal(bot, client, monkeypatch):
+    def refuse(method, payload):
+        raise telegram.TelegramError(401, "Unauthorized")
+
+    monkeypatch.setattr(telegram, "_call", refuse)
+    response = client.post("/api/internal/telegram/webhook", headers=CRON)
+    assert response.status_code == 502
+    assert response.json()["detail"] == "telegram: 401 Unauthorized"
