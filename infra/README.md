@@ -6,6 +6,7 @@ The prototype runs on two services:
 | --- | --- | --- |
 | Backend (FastAPI), PostgreSQL 16, frontend (static site) | [Render](https://render.com), free plan, Frankfurt region | Pulls the code straight from GitHub, gives HTTPS URLs, rebuilds on every push to `main` |
 | Sign-up and sign-in | [Amazon Cognito](https://aws.amazon.com/cognito/) user pool | Email + password with a confirmation code, plus Google; free for up to 50,000 monthly users |
+| AI grading and quiz generation | GitHub Actions ([`ai-worker.yml`](../.github/workflows/ai-worker.yml)) + Claude Haiku 5.5 on [Amazon Bedrock](https://aws.amazon.com/bedrock/) | The worker runs every 5 minutes; it talks to the API, never to the database; fractions of a cent per quiz |
 
 The whole Render setup is in [`render.yaml`](render.yaml). After deployment:
 
@@ -115,6 +116,30 @@ The bot writes to everyone who pressed **Підключити Telegram** (connec
 
 Without `TELEGRAM_BOT_TOKEN`, the connect button simply does not appear in the UI, and `/api/internal/*` answers 404.
 
+## AI grading and quiz generation
+
+Written quiz answers are graded, and materials are turned into draft quizzes, by a worker that runs in GitHub Actions every 5 minutes ([`.github/workflows/ai-worker.yml`](../.github/workflows/ai-worker.yml)). It calls Claude Haiku 5.5 on Amazon Bedrock and talks to the API only through `/api/internal/grading` and `/api/internal/generation` with a shared token. Anything it cannot grade goes to the tutor and is never retried. Both features are part of the Pro plan (a promo code is enough to try them).
+
+1. **AWS → Amazon Bedrock** (region **us-east-1**) → **Model catalog** → **Claude Haiku 5.5**. If AWS asks for Anthropic's use-case form on first use, fill it in.
+2. **AWS → IAM → Users → Create user** `mindleaf-ai-worker` (no console access) → **Add permissions → Create inline policy → JSON**:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": ["bedrock-mantle:CreateInference", "bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+       "Resource": "*"
+     }]
+   }
+   ```
+   Then **Security credentials → Create access key → Application running outside AWS**. Copy the two values straight into GitHub (step 4); do not save them anywhere else.
+3. **Render → mindleaf-api → Environment:** `GRADER_TOKEN` = a long random string (e.g. the output of `openssl rand -hex 32`), `AI_GRADER` = `on` → **Save changes**.
+4. **GitHub → Settings → Secrets and variables → Actions → New repository secret:** `GRADER_TOKEN` (the same value as on Render), `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `API_URL` = `https://mindleaf-api.onrender.com` if it is not there yet.
+5. **Check:** **Actions → ai-worker → Run workflow**. The log ends with a line like `{'graded': 0, 'failed': 0, 'generated': 0, ...} in 1.2s with bedrock`. Then, as a tutor with Pro, open **Матеріали** (materials) → **Згенерувати тест** (generate a quiz): the draft appears after the next run.
+6. **Costs:** **AWS → Billing → Budgets → Create budget** of $1 with an e-mail alert. Grading one quiz costs a fraction of a cent.
+
+GitHub may delay scheduled runs by several minutes; **Run workflow** starts one at once. To switch AI off, set `AI_GRADER` = `off` on Render: written answers then go straight to the tutor.
+
 ## Promo codes and payment mode
 
 | Variable | Where | Description |
@@ -133,7 +158,7 @@ Every `git push` to `main` rebuilds both services. The backend applies new Alemb
 - **Sleeping.** The backend sleeps after 15 minutes without requests; the first request after that waits up to a minute. The reminder scheduler keeps it awake; before a demo, open `/api/health` anyway.
 - **Database.** Render's free PostgreSQL lasts 30 days; after that it has to be recreated or moved to a paid plan.
 - **Homework photos** are stored on the container's disk and disappear after a restart. For permanent storage — S3 (`STORAGE_BACKEND=s3`, see `PROJECT.md`) or a paid Render disk.
-- **AI grader** is off (`AI_GRADER=off`): written quiz answers are graded by the tutor.
+- **AI** results arrive within about 5–15 minutes, not instantly: the worker runs on GitHub's schedule.
 - **Paying for a plan** without LiqPay keys runs in demo mode, no money is charged. Real keys: `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY`, `LIQPAY_SANDBOX` in the `mindleaf-api` variables.
 
 The target production setup (Lambda, Aurora Serverless, S3, CloudFront, Terraform) is described in [`PROJECT.md`](../PROJECT.md#infra); this Render deployment is its simpler stand-in for the prototype.

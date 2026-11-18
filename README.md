@@ -108,7 +108,7 @@ How the backend, data model, roles and data isolation work, every endpoint and e
 ## Prototype limitations
 
 - Render free plan: the server sleeps without requests (the reminder schedule keeps it awake), the database lasts 30 days, homework photos are stored on the server's disk and disappear after a restart.
-- AI quiz generation and grading (Claude Haiku on Amazon Bedrock) is implemented but switched off on the public site — written answers are graded by the tutor.
+- AI grading and quiz generation run every 5 minutes in GitHub Actions, so results arrive with a delay of a few minutes, not instantly.
 - Paying for Pro runs in demo mode without a real charge until LiqPay keys are set; Pro can also be unlocked with a promo code.
 - Signing in with Google and with email using the same address currently creates two separate accounts.
 

@@ -50,9 +50,15 @@ services:
         value: /tmp/mindleaf-uploads
       - key: FILES_SECRET
         generateValue: true
-      # No Bedrock here: written quiz answers go straight to the tutor.
+      # AI grading and quiz generation: the worker runs in GitHub Actions
+      # (.github/workflows/ai-worker.yml) and calls Claude on Bedrock.
+      # "off" sends written answers straight to the tutor.
       - key: AI_GRADER
-        value: "off"
+        value: "on"
+      # Shared with the worker (GitHub secret GRADER_TOKEN). Empty: the
+      # worker's endpoints answer 404 and nothing is graded by AI.
+      - key: GRADER_TOKEN
+        sync: false
       # Telegram reminders (infra/README.md, "Telegram reminders").
       - key: TELEGRAM_BOT_TOKEN
         sync: false

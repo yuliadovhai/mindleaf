@@ -951,7 +951,7 @@ Deployment order: `deploy-backend` → `migrate` → `deploy-frontend`. The migr
 
 ## CI and deployment (`.github/workflows/`)
 
-**What exists now:** `backend.yml`: on every `push` to any branch — `actions/setup-python@v5` (3.12), `pip install ".[dev]"`, `ruff check .`, `ruff format --check .`, `pytest` in `backend/` with a `postgres:16` service container and `TEST_DATABASE_URL`. It has no AWS access. `reminders.yml` is a backup scheduler for Telegram reminders (calls `/api/internal/reminders/run` with `CRON_TOKEN`). Deployment to Render happens automatically on push to `main` (Render's own auto-deploy).
+**What exists now:** `backend.yml`: on every `push` to any branch — `actions/setup-python@v5` (3.12), `pip install ".[dev]"`, `ruff check .`, `ruff format --check .`, `pytest` in `backend/` with a `postgres:16` service container and `TEST_DATABASE_URL`. It has no AWS access. `reminders.yml` is a backup scheduler for Telegram reminders (calls `/api/internal/reminders/run` with `CRON_TOKEN`). `ai-worker.yml` is the AI worker for the Render deployment: every 5 minutes it runs `python -m app.grader.run --grader bedrock` against the API (`GRADER_TOKEN`, AWS keys of an IAM user limited to Bedrock), standing in for the grader Lambda and its EventBridge schedule. Deployment to Render happens automatically on push to `main` (Render's own auto-deploy).
 
 Target state for AWS (`backend.yml` is then absorbed by `ci.yml`):
 
