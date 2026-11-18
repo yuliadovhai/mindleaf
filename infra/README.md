@@ -72,6 +72,19 @@
 2. `https://mindleaf-web.onrender.com` → **Увійти / Зареєструватися** → **Sign up** → код з пошти → вибір ролі «Репетитор».
 3. У кабінеті репетитора додайте учня й видайте код у картці учня. В іншому браузері (або інкогніто) зареєструйтеся ще раз і введіть цей код — відкриється кабінет учня чи батьків.
 
+## Вхід через Google
+
+1. **Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)) → новий проєкт `MindLeaf` → **APIs & Services → OAuth consent screen**: тип **External**, назва `MindLeaf`, ваша пошта → зберегти; у **Audience** натиснути **Publish app**, щоб увійти міг будь-хто, а не лише тестові користувачі.
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID**: тип **Web application**.
+   - **Authorized JavaScript origins:** домен Cognito, напр. `https://eu-central-1xxxx.auth.eu-central-1.amazoncognito.com`
+   - **Authorized redirect URIs:** той самий домен + `/oauth2/idpresponse`
+   Скопіюйте **Client ID** і **Client secret**.
+3. **AWS Cognito → User pool → Authentication → Social and external providers → Add identity provider → Google**: Client ID, Client secret, **Authorized scopes** `profile email openid`; **Attribute mapping:** `email` ← `email`, `name` ← `name` → зберегти.
+4. **App clients → mindleaf-web → Login pages → Edit → Identity providers:** додати **Google** (поруч із Cognito user pool) → **Save changes**.
+5. **Render → mindleaf-web → Environment:** `VITE_GOOGLE_LOGIN` = `true` → **Save, rebuild, and deploy**. На сторінці входу з'явиться «Увійти через Google».
+
+Акаунт через Google і акаунт через email з тією самою поштою — різні акаунти MindLeaf.
+
 ## Нагадування в Telegram
 
 Бот пише кожному, хто натиснув у MindLeaf «Підключити Telegram»: за годину до заняття (з посиланням на Zoom/Meet) і за добу до дедлайну ДЗ чи тесту. Розсилку раз на 10 хвилин запускає [`.github/workflows/reminders.yml`](../.github/workflows/reminders.yml); що вже надіслано, backend пам'ятає (таблиця `reminders_sent`), тож повторний запуск нічого не дублює.

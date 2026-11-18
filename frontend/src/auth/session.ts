@@ -3,6 +3,8 @@ import { useAuth } from "react-oidc-context";
 /** Local demo login (VITE_DEV_LOGIN=true): three buttons instead of Cognito.
  *  The backend accepts "Bearer dev:<sub>" only with DEV_AUTH=on (docker compose). */
 export const DEV_LOGIN = import.meta.env.VITE_DEV_LOGIN === "true";
+/** "Увійти через Google": on once Google is an identity provider of the pool. */
+export const GOOGLE_LOGIN = import.meta.env.VITE_GOOGLE_LOGIN === "true";
 
 const DEV_KEY = "tutor-cabinet.dev-sub";
 
@@ -32,6 +34,8 @@ export interface Session {
   error: Error | undefined;
   isDev: boolean;
   signIn: () => void;
+  /** Straight to Google, skipping the Cognito sign-in form. */
+  signInWithGoogle: () => void;
   signOut: () => void;
 }
 
@@ -48,6 +52,7 @@ export function useSession(): Session {
       error: undefined,
       isDev: true,
       signIn: devLogout,
+      signInWithGoogle: devLogout,
       signOut: devLogout,
     };
   }
@@ -59,6 +64,8 @@ export function useSession(): Session {
     error: auth.error,
     isDev: false,
     signIn: () => void auth.signinRedirect(),
+    signInWithGoogle: () =>
+      void auth.signinRedirect({ extraQueryParams: { identity_provider: "Google" } }),
     signOut: () => {
       void auth.removeUser().then(() => {
         const domain = import.meta.env.VITE_COGNITO_DOMAIN;

@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_COGNITO_DOMAIN: string;
   /** "true" shows the demo login buttons (local development only). */
   readonly VITE_DEV_LOGIN?: string;
+  readonly VITE_GOOGLE_LOGIN?: string;
 }
 
 interface ImportMeta {

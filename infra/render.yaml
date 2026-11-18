@@ -94,3 +94,6 @@ services:
         sync: false
       - key: VITE_COGNITO_DOMAIN
         sync: false
+      # "true" once Google is an identity provider of the pool (infra/README.md).
+      - key: VITE_GOOGLE_LOGIN
+        value: "false"
