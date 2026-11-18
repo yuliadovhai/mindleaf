@@ -7,6 +7,7 @@ import { PlanProvider } from "./lib/planContext";
 import { useRouter } from "./lib/router";
 import { useLoad } from "./lib/useLoad";
 import { LoginPage } from "./pages/LoginPage";
+import { PrivacyPage } from "./pages/PrivacyPage";
 import { RoleChoicePage } from "./pages/RoleChoicePage";
 import { NamePage } from "./pages/NamePage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -159,11 +160,14 @@ function Cabinet() {
 export function App() {
   const session = useSession();
   const { signIn } = session;
+  const { path } = useRouter();
 
   useEffect(() => {
     setSigninRedirect(async () => signIn());
   }, [signIn]);
 
+  // Public: Google's sign-in consent screen links here.
+  if (path === "/privacy") return <PrivacyPage />;
   if (session.isLoading) return <Spinner />;
   if (!session.isAuthenticated) return <LoginPage />;
   return <Cabinet />;

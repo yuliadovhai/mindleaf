@@ -97,6 +97,11 @@ export function LoginPage() {
         >
           {GOOGLE_LOGIN ? "Увійти через email" : "Увійти / Зареєструватися"}
         </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          <a href="/privacy" className="hover:text-foreground hover:underline">
+            Політика конфіденційності
+          </a>
+        </p>
       </div>
     </div>
   );
