@@ -852,6 +852,8 @@ Backend з'єднується з базою за хостом `postgres`. Тес
 
 ## `infra/`
 
+> **Стан зараз.** Прототип розгорнуто на Render: у `infra/` лежать [`render.yaml`](infra/render.yaml) (база, API і сайт одним Blueprint) і [покрокова інструкція](infra/README.md) з Cognito, Google, Telegram і LiqPay. Усе нижче в цьому розділі — **цільова продакшн-схема для AWS на Terraform; її ще не реалізовано**, файлів `*.tf` у репозиторії поки немає.
+
 Навіщо: уся хмарна інфраструктура як код. Terraform, **одна root module**, без підмодулів. State і запуски — у HCP Terraform workspace в режимі **remote execution**; змінні й AWS-доступ задаються у workspace. `terraform apply` виконується тільки в HCP Terraform після мержу — у Makefile його немає. Поки тільки опис файлів.
 
 | Файл | Що описує |
@@ -953,13 +955,7 @@ Repository variables GitHub (не secrets — у них немає секрет�
 
 ## README.md
 
-Навіщо: перша сторінка для нової людини в репозиторії. Розділи:
-
-1. **Що це** — 3–4 речення про продукт з першого абзацу цього документа.
-2. **Локальний запуск** — встановити Docker Desktop, `docker compose up`, API на `http://localhost:8000`, перевірка `curl http://localhost:8000/api/health`. Фронтенд — `cd frontend && npm ci && npm run dev`. `make seed TUTOR_SUB=...` для демо-даних (з акаунтами учня й батьків); як дізнатися свій `sub`. `make grade`, `make lint`, `make test`.
-3. **Деплой** — звичайний шлях: мерж у `main`, далі все робить `deploy.yml`. Ручний шлях: ті самі цілі Makefile з локальними AWS-креденшелами. Інфраструктура: PR зі змінами в `infra/` → `make infra-plan` → apply у HCP Terraform після мержу.
-4. **Перше розгортання** — порядок bootstrap: змінні workspace → перший apply створює ECR (Lambda потребує вже наявного образу, тому перший apply йде з `-target` на ECR-репозиторій) → `make deploy-backend`-ом push образу з тегом у `backend_image_tag` → повний apply → заповнити repository variables з `terraform output` → `make migrate`.
-5. **Посилання** — `PROJECT.md`, `docs/adr/`.
+Навіщо: перша сторінка для сторонньої людини. Розділи: що це і для кого (з посиланням на робочу версію й скріншотами з `docs/screenshots/`), що вміє, як спробувати (на сайті й локально з демо-кнопками), структура репозиторію, як задеплоїти (коротко, з посиланням на `infra/README.md`), команди для розробників, обмеження прототипу. Технічні подробиці — тут, у `PROJECT.md`.
 
 ## Відкриті питання
 
