@@ -852,7 +852,7 @@ Backend з'єднується з базою за хостом `postgres`. Тес
 
 ## `infra/`
 
-> **Стан зараз.** Прототип розгорнуто на Render: у `infra/` лежать [`render.yaml`](infra/render.yaml) (база, API і сайт одним Blueprint) і [покрокова інструкція](infra/README.md) з Cognito, Google, Telegram і LiqPay. Усе нижче в цьому розділі — **цільова продакшн-схема для AWS на Terraform; її ще не реалізовано**, файлів `*.tf` у репозиторії поки немає.
+> **Current state (EN).** The prototype is deployed on Render: `infra/` contains [`render.yaml`](infra/render.yaml) (database, API and site as one Blueprint) and a [step-by-step guide](infra/README.md) for Cognito, Google, Telegram and LiqPay. Everything below in this section is the **target production setup for AWS with Terraform; it is not implemented yet** — there are no `*.tf` files in the repository.
 
 Навіщо: уся хмарна інфраструктура як код. Terraform, **одна root module**, без підмодулів. State і запуски — у HCP Terraform workspace в режимі **remote execution**; змінні й AWS-доступ задаються у workspace. `terraform apply` виконується тільки в HCP Terraform після мержу — у Makefile його немає. Поки тільки опис файлів.
 
@@ -955,7 +955,7 @@ Repository variables GitHub (не secrets — у них немає секрет�
 
 ## README.md
 
-Навіщо: перша сторінка для сторонньої людини. Розділи: що це і для кого (з посиланням на робочу версію й скріншотами з `docs/screenshots/`), що вміє, як спробувати (на сайті й локально з демо-кнопками), структура репозиторію, як задеплоїти (коротко, з посиланням на `infra/README.md`), команди для розробників, обмеження прототипу. Технічні подробиці — тут, у `PROJECT.md`.
+Purpose: the first page for a newcomer (in English). Sections: what it is and who it is for (with the live demo link and screenshots from `docs/screenshots/`), features, how to try it (online and locally with demo buttons), repository structure, how to deploy (short, linking to `infra/README.md`), developer commands, prototype limitations. Technical details live here, in `PROJECT.md`.
 
 ## Відкриті питання
 

@@ -1,135 +1,139 @@
-# Деплой MindLeaf
+# Deploying MindLeaf
 
-Прототип живе на двох сервісах:
+The prototype runs on two services:
 
-| Що | Де | Навіщо |
+| What | Where | Why |
 | --- | --- | --- |
-| Backend (FastAPI), PostgreSQL 16, frontend (статичний сайт) | [Render](https://render.com), безкоштовний план, регіон Frankfurt | Бере код прямо з GitHub, дає HTTPS-адреси, сам перезбирає після кожного push у `main` |
-| Реєстрація і вхід | [Amazon Cognito](https://aws.amazon.com/cognito/) user pool | Email + пароль з підтвердженням коду; безкоштовно до 50 000 користувачів на місяць |
+| Backend (FastAPI), PostgreSQL 16, frontend (static site) | [Render](https://render.com), free plan, Frankfurt region | Pulls the code straight from GitHub, gives HTTPS URLs, rebuilds on every push to `main` |
+| Sign-up and sign-in | [Amazon Cognito](https://aws.amazon.com/cognito/) user pool | Email + password with a confirmation code, plus Google; free for up to 50,000 monthly users |
 
-Уся конфігурація Render — у [`render.yaml`](render.yaml). Після деплою:
+The whole Render setup is in [`render.yaml`](render.yaml). After deployment:
 
-- сайт: `https://mindleaf-web.onrender.com`
-- API: `https://mindleaf-api.onrender.com` (перевірка: `/api/health` → `{"status":"ok"}`)
+- site: `https://mindleaf-web.onrender.com`
+- API: `https://mindleaf-api.onrender.com` (check: `/api/health` → `{"status":"ok"}`)
 
-Якщо ім'я сервісу на Render уже зайняте, Render додасть до адреси суфікс. Тоді впишіть справжні адреси в змінні з кроку 3 і в Cognito.
+If a service name is already taken on Render, Render adds a suffix to the URL. In that case, use the real URLs in the variables from step 3 and in Cognito.
 
-## Перше розгортання
+## First deployment
 
-Порядок важливий: Cognito треба знати адресу сайту, а сайту — ідентифікатори Cognito.
+The order matters: Cognito needs the site's URL, and the site needs Cognito's IDs.
 
-### Крок 1. Render: база, backend і frontend
+### Step 1. Render: database, backend and frontend
 
-1. Увійдіть на render.com через **Sign in with GitHub**.
-2. **New → Blueprint**, оберіть репозиторій `mindleaf`.
+1. Sign in at render.com with **Sign in with GitHub**.
+2. **New → Blueprint**, pick the `mindleaf` repository.
 3. **Blueprint Path:** `infra/render.yaml` → **Apply**.
-4. Render попросить значення для змінних без значення (`COGNITO_*`, `VITE_COGNITO_*`). Поки що впишіть у кожну `todo` — справжні з'являться на кроці 3.
-5. Зачекайте, поки всі три ресурси стануть **Live** (перша збірка — 5–10 хвилин).
+4. Render asks for the variables that have no value (`COGNITO_*`, `VITE_COGNITO_*`). For now, enter `todo` in each — the real values come in step 3.
+5. Wait until all three resources are **Live** (the first build takes 5–10 minutes).
 
-Сайт уже відкривається, але вхід ще не працює.
+The site already opens, but sign-in does not work yet.
 
-### Крок 2. Cognito: пул користувачів
+### Step 2. Cognito: user pool
 
-У [консолі AWS](https://console.aws.amazon.com/cognito/) (регіон угорі праворуч — **Europe (Frankfurt) eu-central-1**):
+In the [AWS console](https://console.aws.amazon.com/cognito/) (region in the top right — **Europe (Frankfurt) eu-central-1**):
 
 1. **Create user pool**.
-2. Тип застосунку — **Single-page application (SPA)**, назва — `mindleaf-web`.
-3. **Options for sign-in identifiers:** Email. **Self-registration:** увімкнено. **Required attributes:** email.
+2. Application type — **Single-page application (SPA)**, name — `mindleaf-web`.
+3. **Options for sign-in identifiers:** Email. **Self-registration:** enabled. **Required attributes:** email.
 4. **Return URL:** `https://mindleaf-web.onrender.com/` → **Create user directory**.
-5. Відкрийте створений пул → **App clients** → `mindleaf-web` → **Login pages** → **Edit**:
-   - **Allowed callback URLs:** `https://mindleaf-web.onrender.com/` і `http://localhost:5173/`
-   - **Allowed sign-out URLs:** ті самі дві адреси
+5. Open the new pool → **App clients** → `mindleaf-web` → **Login pages** → **Edit**:
+   - **Allowed callback URLs:** `https://mindleaf-web.onrender.com/` and `http://localhost:5173/`
+   - **Allowed sign-out URLs:** the same two URLs
    - **OAuth grant types:** Authorization code grant
    - **OpenID Connect scopes:** `openid`, `email`, `profile`
    - **Save changes**
-6. Випишіть три значення:
-   - **User pool ID** (на сторінці пулу, вигляду `eu-central-1_AbCdEf123`);
+6. Note three values:
+   - **User pool ID** (on the pool page, like `eu-central-1_AbCdEf123`);
    - **Client ID** (App clients → `mindleaf-web`);
-   - **Domain** (Branding → Domain, вигляду `https://eu-central-1abcdef.auth.eu-central-1.amazoncognito.com`).
+   - **Domain** (Branding → Domain, like `https://eu-central-1abcdef.auth.eu-central-1.amazoncognito.com`).
 
-### Крок 3. Ідентифікатори Cognito в Render
+### Step 3. Cognito IDs in Render
 
-На render.com → **mindleaf-api → Environment**:
+On render.com → **mindleaf-api → Environment**:
 
-| Змінна | Значення |
+| Variable | Value |
 | --- | --- |
 | `COGNITO_AUTHORITY` | `https://cognito-idp.eu-central-1.amazonaws.com/<User pool ID>` |
 | `COGNITO_CLIENT_ID` | `<Client ID>` |
 
 **mindleaf-web → Environment**:
 
-| Змінна | Значення |
+| Variable | Value |
 | --- | --- |
-| `VITE_COGNITO_AUTHORITY` | те саме, що `COGNITO_AUTHORITY` |
+| `VITE_COGNITO_AUTHORITY` | same as `COGNITO_AUTHORITY` |
 | `VITE_COGNITO_CLIENT_ID` | `<Client ID>` |
-| `VITE_COGNITO_DOMAIN` | `<Domain>` (з `https://`, без `/` у кінці) |
+| `VITE_COGNITO_DOMAIN` | `<Domain>` (with `https://`, no trailing `/`) |
 
-Збережіть: **Save, rebuild, and deploy**. Ці значення — публічні ідентифікатори, а не секрети: вони все одно потрапляють у JS-бандл фронтенду.
+Save: **Save, rebuild, and deploy**. These values are public identifiers, not secrets: they end up in the frontend's JS bundle anyway.
 
-### Крок 4. Перевірка
+### Step 4. Check
 
 1. `https://mindleaf-api.onrender.com/api/health` → `{"status":"ok"}`.
-2. `https://mindleaf-web.onrender.com` → **Увійти / Зареєструватися** → **Sign up** → код з пошти → вибір ролі «Репетитор».
-3. У кабінеті репетитора додайте учня й видайте код у картці учня. В іншому браузері (або інкогніто) зареєструйтеся ще раз і введіть цей код — відкриється кабінет учня чи батьків.
+2. `https://mindleaf-web.onrender.com` → **Увійти через email** (sign in with email) → **Sign up** → code from the email → your name → **Створити кабінет репетитора** (create a tutor cabinet).
+3. In the tutor cabinet, add a student and issue a code on the student's card. In another browser (or a private window), sign up again and enter that code — the student's or the parent's cabinet opens.
 
-## Вхід через Google
+## Sign in with Google
 
-1. **Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)) → новий проєкт `MindLeaf` → **APIs & Services → OAuth consent screen**: тип **External**, назва `MindLeaf`, ваша пошта → зберегти; у **Audience** натиснути **Publish app**, щоб увійти міг будь-хто, а не лише тестові користувачі.
-2. **APIs & Services → Credentials → Create credentials → OAuth client ID**: тип **Web application**.
-   - **Authorized JavaScript origins:** домен Cognito, напр. `https://eu-central-1xxxx.auth.eu-central-1.amazoncognito.com`
-   - **Authorized redirect URIs:** той самий домен + `/oauth2/idpresponse`
-   Скопіюйте **Client ID** і **Client secret**.
-3. **AWS Cognito → User pool → Authentication → Social and external providers → Add identity provider → Google**: Client ID, Client secret, **Authorized scopes** `profile email openid`; **Attribute mapping:** `email` ← `email`, `name` ← `name` → зберегти.
-4. **App clients → mindleaf-web → Login pages → Edit → Identity providers:** додати **Google** (поруч із Cognito user pool) → **Save changes**.
-5. **Render → mindleaf-web → Environment:** `VITE_GOOGLE_LOGIN` = `true` → **Save, rebuild, and deploy**. На сторінці входу з'явиться «Увійти через Google».
+1. **Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)) → new project `MindLeaf` → **Google Auth Platform** (OAuth consent screen) → **Get started**: app name `MindLeaf`, your email, audience **External** → create.
+2. **Clients → Create client**: type **Web application**.
+   - **Authorized JavaScript origins:** the Cognito domain, e.g. `https://eu-central-1xxxx.auth.eu-central-1.amazoncognito.com`
+   - **Authorized redirect URIs:** the same domain + `/oauth2/idpresponse`
 
-Акаунт через Google і акаунт через email з тією самою поштою — різні акаунти MindLeaf.
+   Copy the **Client ID** and **Client secret**.
+3. **Branding:** home page `https://mindleaf-web.onrender.com`, privacy policy `https://mindleaf-web.onrender.com/privacy`, authorized domains — the Cognito domain and `mindleaf-web.onrender.com` → **Save**. Then **Audience → Publish app**, so that anyone can sign in, not only test users. We only request email and name, so Google verification is not required.
+4. **AWS Cognito → User pool → Authentication → Social and external providers → Add identity provider → Google**: Client ID, Client secret, **Authorized scopes** `profile email openid`; **Attribute mapping:** `email` ← `email`, `name` ← `name` → save.
+5. **App clients → mindleaf-web → Login pages → Edit → Identity providers:** add **Google** (next to Cognito user pool) → **Save changes**.
+6. **Render → mindleaf-web → Environment:** `VITE_GOOGLE_LOGIN` = `true` → **Save, rebuild, and deploy**. The sign-in page then shows **Увійти через Google** (sign in with Google).
 
-## Нагадування в Telegram
+An account created with Google and one created with email for the same address are two separate MindLeaf accounts.
 
-Бот пише кожному, хто натиснув у MindLeaf «Підключити Telegram»: за годину до заняття (з посиланням на Zoom/Meet) і за добу до дедлайну ДЗ чи тесту. Розсилку раз на 10 хвилин запускає [`.github/workflows/reminders.yml`](../.github/workflows/reminders.yml); що вже надіслано, backend пам'ятає (таблиця `reminders_sent`), тож повторний запуск нічого не дублює.
+## Telegram reminders
 
-1. **Бот.** У Telegram відкрийте [@BotFather](https://t.me/BotFather) → `/newbot` → назва `MindLeaf` → ім'я, що закінчується на `bot` (наприклад, `mindleaf_tutor_bot`). BotFather дасть **токен** вигляду `123456789:AA…` — це секрет.
+The bot writes to everyone who pressed **Підключити Telegram** (connect Telegram) in MindLeaf: about an hour before a lesson (with the Zoom/Meet link) and a day before a homework or quiz deadline. The backend remembers what it has already sent (the `reminders_sent` table), so calling it again never sends duplicates.
+
+1. **Bot.** In Telegram, open [@BotFather](https://t.me/BotFather) → `/newbot` → name `MindLeaf` → a username ending in `bot` (e.g. `mindleaf_tutor_bot`). BotFather gives you a **token** like `123456789:AA…` — it is a secret.
 2. **Render → mindleaf-api → Environment:**
 
-   | Змінна | Значення |
+   | Variable | Value |
    | --- | --- |
-   | `TELEGRAM_BOT_TOKEN` | токен від BotFather |
-   | `TELEGRAM_BOT_USERNAME` | ім'я бота без `@` |
-   | `TELEGRAM_WEBHOOK_SECRET` | будь-який довгий випадковий рядок (Blueprint генерує сам) |
-   | `CRON_TOKEN` | будь-який довгий випадковий рядок (Blueprint генерує сам) |
+   | `TELEGRAM_BOT_TOKEN` | the token from BotFather |
+   | `TELEGRAM_BOT_USERNAME` | the bot's username without `@` |
+   | `TELEGRAM_WEBHOOK_SECRET` | any long random string (the Blueprint generates it) |
+   | `CRON_TOKEN` | any long random string (the Blueprint generates it) |
 
    **Save, rebuild, and deploy.**
-3. **Підключити бота до сервера** (один раз, після деплою): Telegram має знати, куди пересилати повідомлення бота.
+3. **Connect the bot to the server** (once, after deployment) so that Telegram knows where to deliver the bot's messages:
 
    ```sh
    curl -X POST -H "X-Cron-Token: <CRON_TOKEN>" https://mindleaf-api.onrender.com/api/internal/telegram/webhook
    ```
 
-   Відповідь `{"ok":true,…}` — готово.
-4. **GitHub → репозиторій → Settings → Secrets and variables → Actions → New repository secret:** `API_URL` = `https://mindleaf-api.onrender.com`, `CRON_TOKEN` = те саме значення, що на Render. Перевірити: **Actions → reminders → Run workflow**.
+   A response with `{"ok":true,…}` means it worked.
+4. **Scheduler.** Something has to call `POST /api/internal/reminders/run` with the `X-Cron-Token` header every few minutes:
+   - **[cron-job.org](https://cron-job.org)** (recommended, free and on time): a job with the URL `https://mindleaf-api.onrender.com/api/internal/reminders/run`, every 5 minutes, method `POST`, header `X-Cron-Token: <CRON_TOKEN>`, timeout 30 s. It also keeps the free Render backend from falling asleep.
+   - **GitHub Actions** as a backup: [`.github/workflows/reminders.yml`](../.github/workflows/reminders.yml) runs every 10 minutes (GitHub may delay scheduled runs). It needs two repository secrets (**Settings → Secrets and variables → Actions**): `API_URL` = `https://mindleaf-api.onrender.com` and `CRON_TOKEN` = the same value as on Render. Check with **Actions → reminders → Run workflow**.
 
-Без `TELEGRAM_BOT_TOKEN` кнопки підключення в інтерфейсі просто немає, а `/api/internal/*` відповідає 404.
+Without `TELEGRAM_BOT_TOKEN`, the connect button simply does not appear in the UI, and `/api/internal/*` answers 404.
 
-## Промокоди та режим оплати
+## Promo codes and payment mode
 
-| Змінна | Де задавати | Опис |
+| Variable | Where | Description |
 | --- | --- | --- |
-| `PROMO_CODES` | Render → mindleaf-api → Environment | Формат: `КОД:ДНІВ:МАКС_ВИКОРИСТАНЬ`, розділені комою. Наприклад: `LAUNCH:30:50,BETA:14:10`. Порожнє значення — промокодів немає. Регістр не має значення. |
-| `BILLING_MODE` | Render → mindleaf-api → Environment | Значення `disabled` вимикає кнопку «Оформити Pro» (корисно до підключення LiqPay). Промокоди при цьому продовжують працювати. Blueprint задає `disabled` за замовчуванням. |
+| `PROMO_CODES` | Render → mindleaf-api → Environment | Format: `CODE:DAYS:MAX_USES`, comma-separated. Example: `LAUNCH:30:50,BETA:14:10`. Empty — no promo codes. Case-insensitive. |
+| `BILLING_MODE` | Render → mindleaf-api → Environment | `disabled` turns off the **Оформити Pro** (get Pro) button — useful until LiqPay is connected. Promo codes keep working. The Blueprint sets `disabled` by default. |
 
-Щоб додати `PROMO_CODES` на Render: **mindleaf-api → Environment → Edit** → знайти рядок `PROMO_CODES` → вписати значення → **Save changes**.
+To add `PROMO_CODES` on Render: **mindleaf-api → Environment → Edit** → find `PROMO_CODES` → enter the value → **Save changes**.
 
-## Оновлення
+## Updates
 
-Кожен `git push` у `main` перезбирає обидва сервіси. Backend при старті сам накочує нові міграції Alembic.
+Every `git push` to `main` rebuilds both services. The backend applies new Alembic migrations on start.
 
-## Обмеження безкоштовного плану
+## Free plan limitations
 
-- **Засинання.** Backend засинає після 15 хвилин без запитів; перший запит після цього чекає до хвилини. Перед показом відкрийте `/api/health`.
-- **База.** Безкоштовна PostgreSQL на Render живе 30 днів, потім її треба перестворити або перейти на платний план.
-- **Фото ДЗ** лежать на диску контейнера і зникають після перезапуску. Для постійного зберігання — S3 (`STORAGE_BACKEND=s3`, див. `PROJECT.md`) або платний диск Render.
-- **ШІ-оцінювач** вимкнено (`AI_GRADER=off`): письмові відповіді в тестах оцінює репетитор.
-- **Оплата тарифу** без ключів LiqPay працює в демо-режимі, гроші не списуються. Справжні ключі: `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY`, `LIQPAY_SANDBOX` у змінних `mindleaf-api`.
+- **Sleeping.** The backend sleeps after 15 minutes without requests; the first request after that waits up to a minute. The reminder scheduler keeps it awake; before a demo, open `/api/health` anyway.
+- **Database.** Render's free PostgreSQL lasts 30 days; after that it has to be recreated or moved to a paid plan.
+- **Homework photos** are stored on the container's disk and disappear after a restart. For permanent storage — S3 (`STORAGE_BACKEND=s3`, see `PROJECT.md`) or a paid Render disk.
+- **AI grader** is off (`AI_GRADER=off`): written quiz answers are graded by the tutor.
+- **Paying for a plan** without LiqPay keys runs in demo mode, no money is charged. Real keys: `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY`, `LIQPAY_SANDBOX` in the `mindleaf-api` variables.
 
-Цільова продакшн-схема (Lambda, Aurora Serverless, S3, CloudFront, Terraform) описана в [`PROJECT.md`](../PROJECT.md#infra); цей Render-деплой — її простіша заміна для прототипу.
+The target production setup (Lambda, Aurora Serverless, S3, CloudFront, Terraform) is described in [`PROJECT.md`](../PROJECT.md#infra); this Render deployment is its simpler stand-in for the prototype.

@@ -53,7 +53,7 @@ services:
       # No Bedrock here: written quiz answers go straight to the tutor.
       - key: AI_GRADER
         value: "off"
-      # Telegram reminders (infra/README.md, "Нагадування в Telegram").
+      # Telegram reminders (infra/README.md, "Telegram reminders").
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_BOT_USERNAME

@@ -1,113 +1,115 @@
 # MindLeaf
 
-**Онлайн-кабінет для приватного репетитора, його учнів і батьків: розклад, облік учнів і оплат, домашні завдання, тести й нагадування в одному місці.**
+**An online cabinet for a private tutor, their students and the parents: schedule, student and payment tracking, homework, quizzes and reminders in one place.**
 
-🌐 **Робоча версія:** https://mindleaf-web.onrender.com — реєстрація через email або Google, безкоштовно.
+🌐 **Live demo:** https://mindleaf-web.onrender.com — sign up with email or Google, free.
 
-![Кабінет репетитора: заняття на сьогодні, що потребує уваги, гроші й борги](docs/screenshots/tutor-today.png)
+![Tutor's dashboard: today's lessons, what needs attention, income and debts](docs/screenshots/tutor-today.png)
 
-## Навіщо
+*The interface is in Ukrainian: the product is built for tutors in Ukraine.*
 
-Приватний репетитор з 5–30 учнями зазвичай веде роботу в месенджерах, Google Calendar, таблицях і зошиті: розклад в одному місці, хто скільки заплатив — в іншому, ДЗ приходять фото в Telegram і губляться, а батьки щоразу питають, як справи в дитини і скільки вони винні. MindLeaf збирає це в один кабінет, де кожен бачить своє:
+## Why
 
-| Хто | Що робить у MindLeaf |
+A private tutor with 5–30 students usually runs their work across messengers, Google Calendar, spreadsheets and a notebook: the schedule is in one place, who paid what is in another, homework arrives as photos in Telegram and gets lost, and parents keep asking how their child is doing and how much they owe. MindLeaf brings this into one cabinet where everyone sees their own part:
+
+| Who | What they do in MindLeaf |
 | --- | --- |
-| **Репетитор** (платить за тариф) | Веде учнів, планує заняття в тижневому календарі, відмічає проведені й записує оплати — баланс і борги рахуються самі. Задає ДЗ з дедлайнами, тести (вручну або чернетку з матеріалу), ділиться матеріалами. |
-| **Учень** (безкоштовно) | Бачить розклад і кнопку «Приєднатися» до онлайн-заняття, здає ДЗ текстом або фото, проходить тести з миттєвим результатом, відкриває матеріали. |
-| **Батьки** (безкоштовно) | Бачать розклад, ДЗ і результати дитини, баланс і історію оплат; можуть скасувати заняття заздалегідь (строк задає репетитор). |
+| **Tutor** (pays for the plan) | Keeps a list of students, plans lessons in a weekly calendar, marks lessons as done and records payments — balances and debts are calculated automatically. Assigns homework with deadlines and quizzes (written by hand or drafted from a material), shares materials. |
+| **Student** (free) | Sees the schedule and a "Join" button for the online lesson, hands in homework as text or photos, takes quizzes with instant results, opens materials. |
+| **Parent** (free) | Sees the child's schedule, homework and results, the balance and payment history; can cancel a lesson in advance (the tutor sets how far ahead). |
 
-Учень і батьки приєднуються за одноразовим кодом, який репетитор видає в картці учня.
+Students and parents join with a one-time code that the tutor issues on the student's card.
 
-## Що вміє
+## Features
 
-- **Вхід** через email + пароль або Google (Amazon Cognito); при першому вході — ім'я і роль.
-- **Розклад:** тижневий календар і список; заняття з темою, ціною, ДЗ і посиланням на Zoom/Meet (постійне для учня або своє для заняття).
-- **Облік:** баланс учня = оплати − проведені заняття; борги видно на головній репетитора й у батьків.
-- **Навчання:** ДЗ з дедлайнами й оцінкою 1–12, тести з автоперевіркою варіантів, матеріали (PDF, фото, конспекти).
-- **Нагадування в Telegram:** за ~годину до заняття (з посиланням, щоб одразу приєднатися) і за добу до дедлайну ДЗ чи тесту, якщо його ще не здано. Підключається однією кнопкою «Нагадування».
-- **Тариф:** Free — до 3 учнів; Pro — 199 грн/міс або 1990 грн/рік через LiqPay; промокоди.
-- Українською, гривні, час `Europe/Kyiv`; працює на телефоні; світла й темна тема.
+- **Sign-in** with email + password or Google (Amazon Cognito); name and role on the first sign-in.
+- **Schedule:** weekly calendar and list view; lessons with a topic, price, homework and a Zoom/Meet link (a permanent one per student or a separate one per lesson).
+- **Tracking:** student balance = payments − lessons held; debts are shown on the tutor's dashboard and to parents.
+- **Learning:** homework with deadlines and a 1–12 grade, quizzes with auto-graded multiple choice, materials (PDF, photos, notes).
+- **Telegram reminders:** ~1 hour before a lesson (with the link to join right away) and a day before a homework or quiz deadline if it is not handed in yet. Connected with one "Reminders" button.
+- **Plans:** Free — up to 3 students; Pro — 199 UAH/month or 1990 UAH/year via LiqPay; promo codes.
+- Ukrainian UI, hryvnias, `Europe/Kyiv` time; works on phones; light and dark theme.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/tutor-schedule.png" alt="Тижневий розклад репетитора"></td>
-    <td><img src="docs/screenshots/student-home.png" alt="Головна учня: що зробити, найближчі заняття з кнопкою «Приєднатися»"></td>
+    <td><img src="docs/screenshots/tutor-schedule.png" alt="Tutor's weekly schedule"></td>
+    <td><img src="docs/screenshots/student-home.png" alt="Student home: to-do list and upcoming lessons with a Join button"></td>
   </tr>
   <tr>
-    <td align="center">Розклад репетитора</td>
-    <td align="center">Головна учня</td>
+    <td align="center">Tutor's schedule</td>
+    <td align="center">Student's home page</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/parent-payments.png" alt="Оплати в кабінеті батьків: борг, історія, баланс після кожного запису"></td>
-    <td><img src="docs/screenshots/login.png" alt="Сторінка входу: Google або email"></td>
+    <td><img src="docs/screenshots/parent-payments.png" alt="Parent's payments: debt, history, balance after each entry"></td>
+    <td><img src="docs/screenshots/login.png" alt="Sign-in page: Google or email"></td>
   </tr>
   <tr>
-    <td align="center">Оплати в кабінеті батьків</td>
-    <td align="center">Вхід</td>
+    <td align="center">Payments in the parent's cabinet</td>
+    <td align="center">Sign-in</td>
   </tr>
 </table>
 
-## Як спробувати
+## Try it
 
-**На сайті** (нічого не треба встановлювати):
+**Online** (nothing to install):
 
-1. Відкрийте https://mindleaf-web.onrender.com → **Увійти через Google** або **Увійти через email** → вкажіть ім'я → **Створити кабінет репетитора**.
-2. **Учні → Додати учня**, потім у картці учня натисніть **Код для учня** або **Код для батьків** (код одноразовий, діє 7 днів).
-3. У вікні інкогніто зареєструйтеся ще одним акаунтом і введіть цей код — відкриється кабінет учня чи батьків.
+1. Open https://mindleaf-web.onrender.com → **Увійти через Google** (Google) or **Увійти через email** (email) → enter your name → **Створити кабінет репетитора** (create a tutor cabinet).
+2. **Учні → Додати учня** (Students → Add student), then on the student's card press **Код для учня** or **Код для батьків** (code for the student / for a parent; one-time, valid for 7 days).
+3. In a private window, sign up with another account and enter that code — the student's or the parent's cabinet opens.
 
-Сервер на безкоштовному плані Render: якщо сайтом давно ніхто не користувався, перше відкриття може тривати до хвилини.
+The server runs on Render's free plan: if nobody has used the site for a while, the first load may take up to a minute.
 
-**Локально з демо-даними** (потрібні Docker і Node.js 20):
+**Locally with demo data** (requires Docker and Node.js 20):
 
 ```sh
-docker compose up --build -d          # PostgreSQL + API на http://localhost:8000
-make seed                             # демо-репетитор, 3 учні, заняття, оплати, ДЗ, тести
-cd frontend && npm ci && npm run dev  # сайт на http://localhost:5173
+docker compose up --build -d          # PostgreSQL + API on http://localhost:8000
+make seed                             # demo tutor, 3 students, lessons, payments, homework, quizzes
+cd frontend && npm ci && npm run dev  # site on http://localhost:5173
 ```
 
-На сторінці входу з'являться три кнопки — **Репетитор**, **Учень**, **Батьки**: вони входять у демо-акаунти без реєстрації (лише локально). API-документація: http://localhost:8000/docs.
+The sign-in page then shows three buttons — **Репетитор** (tutor), **Учень** (student), **Батьки** (parent): they sign in to demo accounts without registration (local only). API docs: http://localhost:8000/docs.
 
-## Структура репозиторію
+## Repository structure
 
-| Папка | Що там |
+| Folder | Contents |
 | --- | --- |
-| [`backend/`](backend) | API: Python 3.12, FastAPI, SQLAlchemy, PostgreSQL 16, міграції Alembic, 280+ тестів pytest |
-| [`frontend/`](frontend) | Сайт: React 18, TypeScript, Vite, Tailwind; кабінети репетитора, учня й батьків |
-| [`infra/`](infra) | Деплой: [`render.yaml`](infra/render.yaml) (уся інфраструктура Render одним файлом) і [покрокова інструкція](infra/README.md) |
-| [`docs/`](docs) | Архітектурні рішення (ADR) і скріншоти |
-| [`.github/workflows/`](.github/workflows) | CI (лінтер і тести на кожен push) і розклад Telegram-нагадувань |
-| [`PROJECT.md`](PROJECT.md) | Детальний опис для розробників: модель даних, API, автентифікація, змінні середовища |
+| [`backend/`](backend) | API: Python 3.12, FastAPI, SQLAlchemy, PostgreSQL 16, Alembic migrations, 280+ pytest tests |
+| [`frontend/`](frontend) | Web app: React 18, TypeScript, Vite, Tailwind; tutor, student and parent cabinets |
+| [`infra/`](infra) | Deployment: [`render.yaml`](infra/render.yaml) (the whole Render setup in one file) and a [step-by-step guide](infra/README.md) |
+| [`docs/`](docs) | Architecture decision records (ADR) and screenshots |
+| [`.github/workflows/`](.github/workflows) | CI (lint and tests on every push) and the Telegram reminder schedule |
+| [`PROJECT.md`](PROJECT.md) | Detailed developer notes: data model, API, authentication, environment variables |
 
-## Як задеплоїти
+## Deploy
 
-Прототип працює на **Render** (backend у Docker, PostgreSQL, статичний сайт — усе з HTTPS), вхід — через **Amazon Cognito**. Після налаштування кожен `git push` у `main` перезбирає сайт сам, а backend при старті накочує нові міграції.
+The prototype runs on **Render** (backend in Docker, PostgreSQL, static site — all over HTTPS); sign-in goes through **Amazon Cognito**. Once set up, every `git push` to `main` rebuilds the site, and the backend applies new migrations on start.
 
-1. **Render:** New → Blueprint → цей репозиторій, шлях `infra/render.yaml` → Apply. Створяться база, API (`mindleaf-api`) і сайт (`mindleaf-web`).
-2. **Cognito:** user pool з входом через email і self sign-up; callback і sign-out URL — адреса сайту.
-3. **Render → Environment:** вписати ідентифікатори Cognito в обидва сервіси → Save, rebuild, and deploy.
-4. *За бажанням:* вхід через Google (OAuth-клієнт у Google Cloud + провайдер у Cognito), Telegram-бот для нагадувань, ключі LiqPay.
+1. **Render:** New → Blueprint → this repository, path `infra/render.yaml` → Apply. This creates the database, the API (`mindleaf-api`) and the site (`mindleaf-web`).
+2. **Cognito:** a user pool with email sign-in and self sign-up; callback and sign-out URLs point to the site.
+3. **Render → Environment:** put the Cognito IDs into both services → Save, rebuild, and deploy.
+4. *Optional:* Google sign-in (OAuth client in Google Cloud + identity provider in Cognito), a Telegram bot for reminders, LiqPay keys.
 
-Усі кроки з точними значеннями полів — у [**infra/README.md**](infra/README.md).
+Every step with the exact field values is in [**infra/README.md**](infra/README.md).
 
-## Для розробників
+## For developers
 
-Усі команди виконуються в Docker-образі backend, локальний Python не потрібен.
+All commands run inside the backend Docker image, no local Python needed.
 
-| Команда | Що робить |
+| Command | What it does |
 | --- | --- |
-| `make test` | `pytest` проти PostgreSQL з compose (окрема тестова база) |
-| `make lint` | `ruff` (backend) + ESLint і Prettier (frontend) |
-| `make seed` | Демо-дані; повторний запуск оновлює лише демо-репетитора |
-| `make seed TUTOR_SUB=<sub>` | Ті самі демо-дані для вашого Cognito-акаунта |
-| `docker compose down -v` | Почати з чистої бази |
+| `make test` | `pytest` against PostgreSQL from compose (a separate test database) |
+| `make lint` | `ruff` (backend) + ESLint and Prettier (frontend) |
+| `make seed` | Demo data; running it again only resets the demo tutor |
+| `make seed TUTOR_SUB=<sub>` | The same demo data for your own Cognito account |
+| `docker compose down -v` | Start over with an empty database |
 
-Як влаштовані backend, модель даних, ролі й ізоляція даних, усі ендпоінти й змінні середовища — у [PROJECT.md](PROJECT.md); чому зроблено саме так — у [docs/adr/](docs/adr).
+How the backend, data model, roles and data isolation work, every endpoint and environment variable — see [PROJECT.md](PROJECT.md); why it is built this way — see [docs/adr/](docs/adr) (both in Ukrainian).
 
-## Обмеження прототипу
+## Prototype limitations
 
-- Безкоштовний план Render: сервер засинає без запитів (його будить розклад нагадувань), база діє 30 днів, фото ДЗ зберігаються на диску сервера й зникають після перезапуску.
-- ШІ-генерація й перевірка тестів (Claude Haiku на Amazon Bedrock) реалізована, але на публічному сайті вимкнена — письмові відповіді оцінює репетитор.
-- Оплата Pro працює в демо-режимі без справжнього списання, доки не задано ключі LiqPay; Pro можна отримати промокодом.
-- Вхід через Google і через email з тією самою поштою — поки що два різні акаунти.
+- Render free plan: the server sleeps without requests (the reminder schedule keeps it awake), the database lasts 30 days, homework photos are stored on the server's disk and disappear after a restart.
+- AI quiz generation and grading (Claude Haiku on Amazon Bedrock) is implemented but switched off on the public site — written answers are graded by the tutor.
+- Paying for Pro runs in demo mode without a real charge until LiqPay keys are set; Pro can also be unlocked with a promo code.
+- Signing in with Google and with email using the same address currently creates two separate accounts.
 
-Команда: Kateryna Karalyus, Olha Varanytsa, Yuliia Dovhai.
+Team: Kateryna Karalyus, Olha Varanytsa, Yuliia Dovhai.
