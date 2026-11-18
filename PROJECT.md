@@ -1,35 +1,39 @@
-# tutor-cabinet — структура репозиторію і контракти
+# MindLeaf (tutor-cabinet) — repository structure and contracts
 
-`tutor-cabinet` — монорепозиторій кабінету для репетитора, який працює сам на себе. Репетитор реєструється, веде список учнів, планує заняття, відмічає проведені й записує оплати; система рахує, хто скільки винен. Репетитор також задає домашні завдання й тести.
+`tutor-cabinet` is the monorepo of MindLeaf, a cabinet for a self-employed tutor. The tutor signs up, keeps a list of students, plans lessons, marks the ones held and records payments; the system calculates who owes how much. The tutor also assigns homework and quizzes.
 
-Профілів три: **репетитор**, **учень** і **батьки**. Учень і батьки входять за кодом запрошення від репетитора й бачать лише картки, до яких їх прив'язано: учень — розклад, ДЗ і тести (здає ДЗ текстом і фото, проходить тести), батьки — те саме плюс оплати й баланс, і можуть скасувати заняття не пізніше ніж за N годин (N задає репетитор, за замовчуванням 24).
+There are three profiles: **tutor**, **student** and **parent**. Students and parents sign in with an invite code from the tutor and see only the cards they are linked to: a student sees the schedule, homework and quizzes (hands in homework as text and photos, takes quizzes); a parent sees the same plus payments and the balance, and can cancel a lesson no later than N hours before it (N is set by the tutor, 24 by default).
 
-Цей документ фіксує **структуру репозиторію і контракти між частинами**: що лежить у кожній папці, які дані ходять між фронтендом, бекендом, базою й AWS. Коду реалізації тут немає. Якщо реалізація розходиться з цим документом, правиться або реалізація, або документ разом з ADR — але не мовчки.
+This document records the **repository structure and the contracts between its parts**: what lives in each folder and what data flows between the frontend, the backend, the database and AWS. There is no implementation code here. If the implementation diverges from this document, either the implementation or the document (together with an ADR) is corrected — but never silently.
 
-Підходи до структури backend, `lambda_handler`, Cognito, Terraform, Makefile і CI взято з репозиторію лаб Peach (`../lab2/Peach`). Функціональність Spry (зустрічі, звіти, LLM-парсер) сюди не переноситься.
+> **Current state.** The prototype is deployed on Render (see [`infra/README.md`](infra/README.md)). Sections that describe AWS (Lambda, Aurora, S3, CloudFront, Terraform, the deploy Makefile targets and `deploy.yml`) describe the **target production setup, which is not implemented yet**. Features added after this document was first written — meeting links, Telegram reminders, sign-in with Google, promo codes, the privacy page — are described in [`README.md`](README.md) and [`infra/README.md`](infra/README.md).
 
-## Незмінні умови продукту
+The approaches to the backend structure, `lambda_handler`, Cognito, Terraform, the Makefile and CI were taken from the Peach lab repository (`../lab2/Peach`). Spry's functionality (meetings, reports, the LLM parser) is not carried over here.
 
-| Що | Значення |
+## Fixed product constraints
+
+| What | Value |
 | --- | --- |
-| Мова інтерфейсу | українська |
-| Валюта | гривня; **усі суми — цілі числа в копійках** (`int`), у JSON і в БД. Гривні з копійками показує тільки фронтенд. |
-| Часовий пояс | `Europe/Kyiv`. «Сьогодні», «поточний місяць» і межі днів рахуються в ньому. У БД час зберігається як `timestamptz`. |
-| Користувачі | репетитор, учень, батьки; одна роль на акаунт, назавжди. Репетитор бачить лише свої дані, учень і батьки — лише прив'язані картки. |
-| Тарифи | платить лише репетитор. **Безкоштовний:** до 3 активних учнів, без ШІ. **Pro:** 199 грн/міс або 1990 грн/рік, без ліміту учнів, ШІ-перевірка й генерація тестів. Підписка через LiqPay з автосписанням. Pro закінчився, а активних учнів більше 3 — кабінет репетитора лише для перегляду (архівація учнів дозволена). Учні й батьки тарифу не помічають. |
-| Вартість | інфраструктура в AWS не має погодинних платежів: без NAT, без VPC endpoints, без Secrets Manager. Платимо лише за використання (Lambda, Aurora 0 ACU у простої, S3, токени Claude), а це покривають кредити акаунта. |
+| UI language | Ukrainian |
+| Currency | hryvnia; **all amounts are integers in kopecks** (`int`), in JSON and in the DB. Only the frontend shows hryvnias with kopecks. |
+| Time zone | `Europe/Kyiv`. "Today", "the current month" and day boundaries are computed in it. Time is stored in the DB as `timestamptz`. |
+| Users | tutor, student, parent; one role per account, forever. A tutor sees only their own data; students and parents see only the cards they are linked to. |
+| Plans | only the tutor pays. **Free:** up to 3 active students, no AI. **Pro:** 199 UAH/month or 1990 UAH/year, unlimited students, AI grading and quiz generation. Subscription via LiqPay with automatic renewal. When Pro has ended and there are more than 3 active students, the tutor's cabinet becomes read-only (archiving students is still allowed). Students and parents do not notice the plan. |
+| Cost | the AWS infrastructure has no hourly charges: no NAT, no VPC endpoints, no Secrets Manager. We pay only for usage (Lambda, Aurora at 0 ACU when idle, S3, Claude tokens), which the account credits cover. |
 
-## Чого в репозиторії немає і не буде
+## What the repository does not and will not contain
 
-Redis, черг, nginx, ALB, ECS/Fargate, Kubernetes, окремого сервісу авторизації, NAT Gateway, VPC endpoints, Secrets Manager, MinIO. Локально — тільки PostgreSQL і backend (фото ДЗ лежать на docker-томі). У хмарі — S3 + CloudFront для сайту, приватний S3 для фото ДЗ, дві Lambda з одного образу (API у VPC і ШІ-оцінювач поза VPC), EventBridge Scheduler для оцінювача, Aurora, Cognito, Claude Haiku 5.5 в Amazon Bedrock, ECR і IAM-роль для CI.
+Redis, queues, nginx, ALB, ECS/Fargate, Kubernetes, a separate auth service, NAT Gateway, VPC endpoints, Secrets Manager, MinIO. Locally — only PostgreSQL and the backend (homework photos live on a docker volume). In the cloud — S3 + CloudFront for the site, a private S3 bucket for homework photos, two Lambdas from one image (the API inside the VPC and the AI grader outside it), EventBridge Scheduler for the grader, Aurora, Cognito, Claude Haiku 5.5 on Amazon Bedrock, ECR and an IAM role for CI.
 
-## Дерево репозиторію
+## Repository tree
+
+The tree as originally planned; the current repository additionally has migrations `0010`–`0012`, the Telegram and reminder modules, `infra/render.yaml` + `infra/README.md` instead of the Terraform files, and `docs/screenshots/`.
 
 ```text
 tutor-cabinet/
 ├── .github/
 │   └── workflows/
-│       └── backend.yml            # ci.yml і deploy.yml додаються разом з frontend/ та infra/
+│       └── backend.yml            # ci.yml and deploy.yml are added together with frontend/ and infra/
 ├── .gitignore
 ├── Makefile
 ├── PROJECT.md
@@ -83,13 +87,13 @@ tutor-cabinet/
 │   │   │   ├── lessons.py
 │   │   │   ├── payments.py
 │   │   │   ├── dashboard.py
-│   │   │   ├── access.py          # коди запрошення й прив'язки (репетитор) + redeem
-│   │   │   ├── portal.py          # /api/portal: учень і батьки
+│   │   │   ├── access.py          # invite codes and links (tutor) + redeem
+│   │   │   ├── portal.py          # /api/portal: student and parent
 │   │   │   ├── homework.py
 │   │   │   ├── quizzes.py
 │   │   │   ├── materials.py
-│   │   │   ├── internal.py        # /api/internal/{grading,generation} для ШІ-воркера
-│   │   │   └── files.py           # лише локально: файли на томі
+│   │   │   ├── internal.py        # /api/internal/{grading,generation} for the AI worker
+│   │   │   └── files.py           # local only: files on a volume
 │   │   ├── models/
 │   │   │   ├── __init__.py
 │   │   │   ├── user.py
@@ -155,7 +159,7 @@ tutor-cabinet/
 │       ├── test_homework_assignments.py
 │       ├── test_generation.py
 │       └── test_lambda_handler.py
-├── frontend/                      # кабінет репетитора; екранів учня й батьків ще немає
+├── frontend/                      # tutor, student and parent cabinets
 ├── infra/
 │   ├── .terraform.lock.hcl
 │   ├── versions.tf
@@ -184,28 +188,28 @@ tutor-cabinet/
         └── 0011-tariffs-and-liqpay.md
 ```
 
-## Кореневі файли
+## Root files
 
-| Шлях | Навіщо |
+| Path | Purpose |
 | --- | --- |
-| `.github/workflows/` | CI (лінт і тести на кожен push і PR) та деплой на push у `main`. Див. «CI і деплой». |
-| `.gitignore` | `node_modules/`, `dist/`, `__pycache__/`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `infra/.terraform/`, локальні `.env*`. `infra/.terraform.lock.hcl` **комітиться**. |
-| `Makefile` | Контракт деплою й локальних перевірок. CI викликає ті самі цілі. Див. «Makefile». |
-| `PROJECT.md` | Цей документ. |
-| `README.md` | Що це за продукт, як запустити локально, як задеплоїти. Див. «README.md». |
-| `docker-compose.yml` | Увесь локальний runtime: `postgres` і `backend` (плюс том `uploads` для фото ДЗ). `docker compose up` — єдина команда локального запуску. |
+| `.github/workflows/` | CI (lint and tests on every push and PR) and deployment on push to `main`. See "CI and deployment". |
+| `.gitignore` | `node_modules/`, `dist/`, `__pycache__/`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `infra/.terraform/`, local `.env*`. `infra/.terraform.lock.hcl` **is committed**. |
+| `Makefile` | The contract for deployment and local checks. CI calls the same targets. See "Makefile". |
+| `PROJECT.md` | This document. |
+| `README.md` | What the product is, how to run it locally, how to deploy it. See "README.md". |
+| `docker-compose.yml` | The whole local runtime: `postgres` and `backend` (plus the `uploads` volume for homework photos). `docker compose up` is the only command for running locally. |
 
 ## `backend/`
 
-Навіщо: HTTP API кабінету і вся бізнес-логіка (баланси, дашборд, ролі й доступи, ДЗ, тести, ізоляція даних). Один і той самий FastAPI-застосунок працює локально під Uvicorn і в AWS як Lambda через Mangum. З того самого образу працює й ШІ-оцінювач (`app/grader`), окремою Lambda.
+Purpose: the cabinet's HTTP API and all the business logic (balances, dashboard, roles and access, homework, quizzes, data isolation). The same FastAPI application runs locally under Uvicorn and in AWS as a Lambda via Mangum. The AI grader (`app/grader`) runs from the same image as a separate Lambda.
 
-### Версії
+### Versions
 
-| Що | Версія |
+| What | Version |
 | --- | --- |
 | Python | 3.12 (`requires-python = "==3.12.*"`) |
-| Локальний образ | `python:3.12-slim` |
-| Lambda-образ | `public.ecr.aws/lambda/python:3.12` |
+| Local image | `python:3.12-slim` |
+| Lambda image | `public.ecr.aws/lambda/python:3.12` |
 | fastapi | 0.111.0 |
 | pydantic | 2.8.2 |
 | SQLAlchemy | 2.0.31 |
@@ -214,131 +218,134 @@ tutor-cabinet/
 | uvicorn | 0.30.1 |
 | mangum | 0.17.0 |
 | PyJWT[crypto] | 2.10.1 |
-| anthropic[bedrock] | 2.8.0 (`AnthropicBedrockMantle` для Claude Haiku 5.5) |
-| boto3 | 1.44.2 (presigned URL для S3) |
-| python-multipart | 0.0.33 (локальне завантаження фото) |
-| tzdata | 2024.1 (щоб `zoneinfo("Europe/Kyiv")` працював і в slim-, і в Lambda-образі) |
+| anthropic[bedrock] | 2.8.0 (`AnthropicBedrockMantle` for Claude Haiku 5.5) |
+| boto3 | 1.44.2 (presigned URLs for S3) |
+| python-multipart | 0.0.33 (local photo uploads) |
+| tzdata | 2024.1 (so that `zoneinfo("Europe/Kyiv")` works in both the slim and the Lambda image) |
 | setuptools (build backend) | 70.1.1 |
 | **dev:** pytest | 8.3.3 |
-| **dev:** httpx | 0.27.0 (для `fastapi.testclient`) |
+| **dev:** httpx | 0.27.0 (for `fastapi.testclient`) |
 | **dev:** ruff | 0.6.9 |
 
-Ruff: `target-version = "py312"`, `line-length = 88`, `select = ["E", "F", "I", "B", "UP"]`; форматування — `ruff format`.
+Ruff: `target-version = "py312"`, `line-length = 88`, `select = ["E", "F", "I", "B", "UP"]`; formatting — `ruff format`.
 
-### Файли
+### Files
 
-| Шлях | Навіщо |
+| Path | Purpose |
 | --- | --- |
-| `Dockerfile` | Локальний образ на `python:3.12-slim`. Ставить пакет з dev-залежностями (`.[dev]`), щоб `pytest` і `ruff` працювали в контейнері. `CMD`: `alembic upgrade head`, потім `uvicorn app.main:app --host 0.0.0.0 --port 8000`. |
-| `Dockerfile.lambda` | Образ для Lambda на `public.ecr.aws/lambda/python:3.12`. Ставить пакет **без** dev-залежностей, копіює `app/`, `alembic.ini`, `migrations/`. `CMD ["app.lambda_handler.handler"]`; Lambda оцінювача використовує той самий образ із `image_config.command = ["app.grader.lambda_handler.handler"]`. Платформа `linux/amd64`. |
-| `pyproject.toml` | Точні версії залежностей, налаштування ruff і pytest (`testpaths = ["tests"]`). |
-| `alembic.ini` | `script_location = migrations`; URL бази не тут, а з `DATABASE_URL` у `migrations/env.py`. |
-| `migrations/` | Alembic. Схема БД змінюється **тільки** міграціями: `0001` — чотири початкові таблиці, `0002` — `tutors` → `users` з ролями (і виправлення імен CHECK-обмежень з подвоєним префіксом, які створила `0001`), `0003` — запрошення й прив'язки, `0004` — хто й коли скасував заняття, `0005` — ДЗ, `0006` — тести, `0007` — матеріали, `0008` — окремі ДЗ, `0009` — чернетки й генерація тестів. Імена обмежень у нових міграціях задаються через `op.f()`, щоб naming convention не додавала префікс удруге; `tests/test_migrations.py` фіксує всі імена. |
-| `app/main.py` | Створює `FastAPI`, підключає роутери з `app/api` під префіксом `/api`, `CORSMiddleware` з `CORS_ORIGINS`. Більше нічого. |
-| `app/settings.py` | Читає змінні середовища (таблиця нижче) в один незмінний об'єкт `settings`. Не імпортує `app.db`. |
-| `app/db.py` | `Base` (DeclarativeBase), engine з `DATABASE_URL` (`pool_pre_ping=True`; у Lambda — пул на одне з'єднання), `get_session` як FastAPI-залежність. |
-| `app/lambda_handler.py` | Вхід Lambda. Подія `{"action": "migrate"}` → `alembic upgrade head` і відповідь `{"migrated": true, "revision": "<head>"}`. Будь-яке інше значення `action` → виняток (Lambda повертає `FunctionError`). Подія без `action` → `Mangum(app, lifespan="off")`. |
-| `app/seed.py` | `python -m app.seed [--tutor-sub <sub>]`, default `local-dev`: створює репетитора з цим `sub` (якщо нема), 3 учнів, заняття на поточний тиждень, кілька оплат і щонайменше одного боржника. Для першої учениці — акаунти `<sub>-student` і `<sub>-parent`, ДЗ на перевірці і демо-тест (одне призначення відкрите, одне здане й чекає на оцінювача). Повторний запуск видаляє дані **лише цього** репетитора і створює їх заново. Тільки для локальної бази. |
-| `app/storage.py` | Сховище фото ДЗ і матеріалів. `S3Storage` — presigned POST/GET (підпис обчислюється локально з креденшелами ролі, мережа не потрібна); `LocalStorage` — файли на томі, доступ через HMAC-підписані URL `/api/files/...`. Ключі лише двох видів: `homework/<lesson_id або homework_id>/<uuid>.<jpg|png|heic>` і `materials/<tutor_id>/<uuid>.<pdf|jpg|png|txt|md>`. |
-| `app/grader/` | ШІ-воркер — окрема Lambda поза VPC. **Не імпортує `app.db` і SQLAlchemy** (перевіряє тест). За прохід: оцінює письмові відповіді (`/api/internal/grading`; `BedrockGrader` або `FakeGrader`), потім генерує чернетки тестів із матеріалів (`/api/internal/generation`; `BedrockGenerator` або `FakeGenerator`, `generators.py`). Обидва на Claude Haiku 5.5 зі structured output. `run.py` — один прохід і CLI для `make grade`. |
-| `app/auth/` | Перевірка Cognito access token. Не імпортує `app.db`. |
-| `app/auth/jwks.py` | Джерело ключів: якщо задано `COGNITO_JWKS` — парсить його один раз при старті (невалідний JSON → застосунок не стартує); інакше завантажує `{COGNITO_AUTHORITY}/.well-known/jwks.json` і кешує в процесі. |
-| `app/auth/dependencies.py` | `require_claims` (токен → `Claims(sub, ...)` або 401); `get_current_user` (claims + сесія → рядок `users`, створює його без ролі при першому запиті); `get_current_tutor` і `get_current_member` (учень або батьки) — `403`, якщо роль інша. Тести підміняють `get_current_tutor` / `get_current_user` через `app.dependency_overrides`, щоб діяти від імені різних людей. |
-| `app/api/` | Тонкі роутери: розбір запиту, виклик сервісу, серіалізація. Без SQL і без бізнес-правил. Один файл на ресурс; `period.py` — спільна пара query `from`/`to` (`from >= to` → 422). |
-| `app/models/` | ORM-моделі SQLAlchemy 2.x (`Mapped[...]`), один файл на таблицю. |
-| `app/schemas/` | Pydantic v2: тіла запитів і відповідей. Усі моделі запитів мають `extra="forbid"`. `common.py` — спільні типи: `Money` (int, копійки), `AwareDatetime`, `ErrorResponse`. |
-| `app/services/` | Бізнес-логіка. Функції репетитора приймають `tutor_id` і фільтрують за ним; функції порталу приймають користувача й пускають лише до прив'язаних карток (`services/access.py`). Це єдине місце, де забезпечується ізоляція даних. |
-| `app/services/balances.py` | Єдина формула балансу (див. «Модель даних»), яку використовують і `students`, і `dashboard`. |
-| `app/services/clock.py` | «Зараз», «сьогодні» і «поточний місяць» у `Europe/Kyiv`; підмінюється в тестах. |
-| `app/services/errors.py` | Доменні винятки: `NotFound` → `404`, `StudentNotFound` і `Invalid(code)` → `422`, `Forbidden` → `403`, `StudentArchived` і `Conflict(code)` → `409`; перетворює їх `app/main.py`. |
-| `app/services/grading.py` | API-бік ШІ-оцінювання: оренда зданих тестів на 5 хвилин (`FOR UPDATE SKIP LOCKED`), застосування балів, передача репетитору. |
-| `app/services/generation.py` | Черга генерації тестів: запит (до 3 незавершених на репетитора), оренда воркером, збереження результату як чернетки. |
-| `app/services/materials.py` | Бібліотека матеріалів, доступ до них карткам, список для порталу. |
-| `tests/` | pytest проти справжнього PostgreSQL з `TEST_DATABASE_URL`. `conftest.py` створює тестову базу, якщо її нема, проганяє `alembic upgrade head` і загортає кожен тест у транзакцію з відкатом. Токени підписуються тестовим RSA-ключем (`tokens.py`). Фікстури: `as_tutor(...)` (два репетитори), `as_user(...)` (учень, батьки, без ролі — справжні перевірки ролей лишаються), `family` (картка з прив'язаними учнем і батьками, заморожений час), `storage` (фото в тимчасовій теці). `factories.py` створює записи через API. Bedrock у тестах не викликається — лише заглушка клієнта. |
+| `Dockerfile` | Local image on `python:3.12-slim`. Installs the package with dev dependencies (`.[dev]`) so that `pytest` and `ruff` work in the container. `CMD`: `alembic upgrade head`, then `uvicorn app.main:app --host 0.0.0.0 --port 8000`. |
+| `Dockerfile.lambda` | Lambda image on `public.ecr.aws/lambda/python:3.12`. Installs the package **without** dev dependencies, copies `app/`, `alembic.ini`, `migrations/`. `CMD ["app.lambda_handler.handler"]`; the grader Lambda uses the same image with `image_config.command = ["app.grader.lambda_handler.handler"]`. Platform `linux/amd64`. |
+| `pyproject.toml` | Exact dependency versions, ruff and pytest settings (`testpaths = ["tests"]`). |
+| `alembic.ini` | `script_location = migrations`; the database URL is not here but comes from `DATABASE_URL` in `migrations/env.py`. |
+| `migrations/` | Alembic. The DB schema changes **only** through migrations: `0001` — four initial tables, `0002` — `tutors` → `users` with roles (and a fix for CHECK constraint names with a doubled prefix created by `0001`), `0003` — invites and links, `0004` — who cancelled a lesson and when, `0005` — homework, `0006` — quizzes, `0007` — materials, `0008` — standalone homework, `0009` — drafts and quiz generation, `0010` — subscriptions and LiqPay, `0011` — meeting links and Telegram reminders, `0012` — promo codes. Constraint names in new migrations are set with `op.f()` so that the naming convention does not add the prefix twice; `tests/test_migrations.py` pins all names. |
+| `app/main.py` | Creates `FastAPI`, mounts the routers from `app/api` under the `/api` prefix, `CORSMiddleware` with `CORS_ORIGINS`. Nothing else. |
+| `app/settings.py` | Reads the environment variables (table below) into one immutable `settings` object. Does not import `app.db`. |
+| `app/db.py` | `Base` (DeclarativeBase), the engine from `DATABASE_URL` (`pool_pre_ping=True`; in Lambda — a pool of one connection), `get_session` as a FastAPI dependency. |
+| `app/lambda_handler.py` | The Lambda entry point. Event `{"action": "migrate"}` → `alembic upgrade head` and the response `{"migrated": true, "revision": "<head>"}`. Any other `action` value → an exception (Lambda returns `FunctionError`). An event without `action` → `Mangum(app, lifespan="off")`. |
+| `app/seed.py` | `python -m app.seed [--tutor-sub <sub>]`, default `local-dev`: creates a tutor with that `sub` (if missing), 3 students, lessons for the current week, a few payments and at least one student in debt. For the first student — the accounts `<sub>-student` and `<sub>-parent`, homework awaiting review and a demo quiz (one assignment open, one handed in and waiting for the grader). Running it again deletes the data of **this tutor only** and recreates it. Local database only. |
+| `app/storage.py` | Storage for homework photos and materials. `S3Storage` — presigned POST/GET (the signature is computed locally from the role's credentials, no network needed); `LocalStorage` — files on a volume, accessed via HMAC-signed URLs `/api/files/...`. Only two kinds of keys: `homework/<lesson_id or homework_id>/<uuid>.<jpg|png|heic>` and `materials/<tutor_id>/<uuid>.<pdf|jpg|png|txt|md>`. |
+| `app/grader/` | The AI worker — a separate Lambda outside the VPC. **Does not import `app.db` or SQLAlchemy** (a test checks this). Per run: grades written answers (`/api/internal/grading`; `BedrockGrader` or `FakeGrader`), then generates quiz drafts from materials (`/api/internal/generation`; `BedrockGenerator` or `FakeGenerator`, `generators.py`). Both use Claude Haiku 5.5 with structured output. `run.py` — one run and the CLI for `make grade`. |
+| `app/auth/` | Cognito access token verification. Does not import `app.db`. |
+| `app/auth/jwks.py` | Key source: if `COGNITO_JWKS` is set, parses it once at startup (invalid JSON → the app does not start); otherwise downloads `{COGNITO_AUTHORITY}/.well-known/jwks.json` and caches it in the process. |
+| `app/auth/dependencies.py` | `require_claims` (token → `Claims(sub, ...)` or 401); `get_current_user` (claims + session → the `users` row, created without a role on the first request); `get_current_tutor` and `get_current_member` (student or parent) — `403` if the role is different. Tests override `get_current_tutor` / `get_current_user` via `app.dependency_overrides` to act as different people. |
+| `app/api/` | Thin routers: parse the request, call a service, serialize. No SQL and no business rules. One file per resource; `period.py` — the shared `from`/`to` query pair (`from >= to` → 422). |
+| `app/models/` | SQLAlchemy 2.x ORM models (`Mapped[...]`), one file per table. |
+| `app/schemas/` | Pydantic v2: request and response bodies. All request models have `extra="forbid"`. `common.py` — shared types: `Money` (int, kopecks), `AwareDatetime`, `ErrorResponse`. |
+| `app/services/` | Business logic. Tutor functions take `tutor_id` and filter by it; portal functions take the user and allow access only to linked cards (`services/access.py`). This is the only place where data isolation is enforced. |
+| `app/services/balances.py` | The single balance formula (see "Data model"), used by both `students` and `dashboard`. |
+| `app/services/clock.py` | "Now", "today" and "the current month" in `Europe/Kyiv`; replaced in tests. |
+| `app/services/errors.py` | Domain exceptions: `NotFound` → `404`, `StudentNotFound` and `Invalid(code)` → `422`, `Forbidden` → `403`, `StudentArchived` and `Conflict(code)` → `409`; `app/main.py` converts them. |
+| `app/services/grading.py` | The API side of AI grading: leasing handed-in quizzes for 5 minutes (`FOR UPDATE SKIP LOCKED`), applying the points, handing over to the tutor. |
+| `app/services/generation.py` | The quiz generation queue: requests (up to 3 unfinished per tutor), leasing by the worker, saving the result as a draft. |
+| `app/services/materials.py` | The materials library, card access to materials, the list for the portal. |
+| `tests/` | pytest against a real PostgreSQL from `TEST_DATABASE_URL`. `conftest.py` creates the test database if it is missing, runs `alembic upgrade head` and wraps each test in a rolled-back transaction. Tokens are signed with a test RSA key (`tokens.py`). Fixtures: `as_tutor(...)` (two tutors), `as_user(...)` (student, parent, no role — the real role checks stay in place), `family` (a card with a linked student and parent, frozen time), `storage` (photos in a temporary folder). `factories.py` creates records through the API. Bedrock is never called in tests — only a client stub. |
 
-### Змінні середовища backend
+### Backend environment variables
 
-| Змінна | Обов'язкова | Локально (compose) | У Lambda (Terraform / деплой) |
+| Variable | Required | Locally (compose) | In Lambda (Terraform / deploy) |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | так | `postgresql+psycopg://tutor:tutor@postgres:5432/tutor_cabinet` | Збирається в `api.tf` з endpoint Aurora і `db_password`. |
-| `COGNITO_AUTHORITY` | так | `https://cognito-idp.us-east-1.amazonaws.com/<pool_id>` | Те саме, з `auth.tf`. |
-| `COGNITO_CLIENT_ID` | так | ID web-клієнта пулу | Те саме, з `auth.tf`. |
-| `COGNITO_JWKS` | ні | не задано → ключі завантажуються за URL | JSON-документ JWKS (`{"keys":[...]}`) рядком; записує `make deploy-backend`. |
-| `CORS_ORIGINS` | ні | `http://localhost:5173` | `https://<домен CloudFront>` — і тільки він. |
-| `TEST_DATABASE_URL` | тільки для тестів | `postgresql+psycopg://tutor:tutor@postgres:5432/tutor_cabinet_test` | — |
-| `STORAGE_BACKEND` | ні | `local` | `s3` |
-| `UPLOADS_BUCKET` | для `s3` | — | Бакет фото з `uploads.tf`. |
-| `UPLOADS_DIR` | для `local` | `/data/uploads` (том `uploads`) | — |
-| `FILES_SECRET` | для `local` | `local-dev-only-secret` | — |
-| `PUBLIC_API_URL` | для `local` | `http://localhost:8000` — база посилань `/api/files/...` | — |
-| `DEV_AUTH` | ні | `on` — приймати `Bearer dev:<sub>` без Cognito (демо-кнопки входу) | не задається; з `on` backend у Lambda не стартує |
-| `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY` | ні | порожні → демо-оплата; ключі `sandbox_...` з `.env` → справжня форма LiqPay (але callback до localhost не дійде) | Sensitive-змінні workspace. Без них у Lambda оплата вимкнена (`409 billing_disabled`). |
-| `LIQPAY_SANDBOX` | ні | `1` | `1` для тестових ключів, `0` у продакшені |
-| `SITE_URL` | ні | `http://localhost:5173` | `https://<домен CloudFront>`: куди LiqPay повертає платника |
-| `GRADER_TOKEN` | ні | `local-dev-grader-token` | Спільний секрет з Lambda оцінювача (`random_password` або sensitive-змінна workspace). Порожній → `/api/internal` відповідає `404`. |
-| `AI_GRADER` | ні | `on` | `on`; `off` — письмові відповіді одразу йдуть репетитору (`needs_review`), Bedrock не викликається. |
+| `DATABASE_URL` | yes | `postgresql+psycopg://tutor:tutor@postgres:5432/tutor_cabinet` | Built in `api.tf` from the Aurora endpoint and `db_password`. |
+| `COGNITO_AUTHORITY` | yes | `https://cognito-idp.<region>.amazonaws.com/<pool_id>` | The same, from `auth.tf`. |
+| `COGNITO_CLIENT_ID` | yes | the pool's web client ID | The same, from `auth.tf`. |
+| `COGNITO_JWKS` | no | not set → keys are downloaded from the URL | The JWKS document (`{"keys":[...]}`) as a string; written by `make deploy-backend`. |
+| `CORS_ORIGINS` | no | `http://localhost:5173` | `https://<CloudFront domain>` — and only that. |
+| `TEST_DATABASE_URL` | tests only | `postgresql+psycopg://tutor:tutor@postgres:5432/tutor_cabinet_test` | — |
+| `STORAGE_BACKEND` | no | `local` | `s3` |
+| `UPLOADS_BUCKET` | for `s3` | — | The photo bucket from `uploads.tf`. |
+| `UPLOADS_DIR` | for `local` | `/data/uploads` (the `uploads` volume) | — |
+| `FILES_SECRET` | for `local` | `local-dev-only-secret` | — |
+| `PUBLIC_API_URL` | for `local` | `http://localhost:8000` — the base of `/api/files/...` links | — |
+| `DEV_AUTH` | no | `on` — accept `Bearer dev:<sub>` without Cognito (demo sign-in buttons) | not set; with `on` the backend refuses to start in Lambda |
+| `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY` | no | empty → demo payment; `sandbox_...` keys from `.env` → the real LiqPay form (but the callback cannot reach localhost) | Sensitive workspace variables. Without them, payment is disabled in Lambda (`409 billing_disabled`). |
+| `LIQPAY_SANDBOX` | no | `1` | `1` for test keys, `0` in production |
+| `SITE_URL` | no | `http://localhost:5173` | `https://<CloudFront domain>`: where LiqPay sends the payer back |
+| `GRADER_TOKEN` | no | `local-dev-grader-token` | A secret shared with the grader Lambda (`random_password` or a sensitive workspace variable). Empty → `/api/internal` answers `404`. |
+| `AI_GRADER` | no | `on` | `on`; `off` — written answers go straight to the tutor (`needs_review`), Bedrock is not called. |
 
-**Lambda оцінювача** (поза VPC) отримує лише `API_URL` (function URL API), `GRADER_TOKEN`, `GRADER` (`bedrock` \| `fake` \| `off`), `GRADER_MODEL` (default `anthropic.claude-haiku-5-5`) і `AWS_REGION`. Бази вона не бачить.
+The Render deployment also uses `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`, `CRON_TOKEN`, `PROMO_CODES` and `BILLING_MODE` — see [`infra/README.md`](infra/README.md).
 
-Значення Cognito в `docker-compose.yml` — публічні ідентифікатори (вони й так є у фронтенд-бандлі), не секрети. Локальний backend перевіряє токени того самого dev-пулу, що й хмара.
+**The grader Lambda** (outside the VPC) receives only `API_URL` (the API's function URL), `GRADER_TOKEN`, `GRADER` (`bedrock` \| `fake` \| `off`), `GRADER_MODEL` (default `anthropic.claude-haiku-5-5`) and `AWS_REGION`. It never sees the database.
 
-## Автентифікація
+The Cognito values in `docker-compose.yml` are public identifiers (they are in the frontend bundle anyway), not secrets. The local backend verifies tokens from the same dev pool as the cloud.
 
-**Провайдер:** Amazon Cognito user pool з managed login (версія 2). Способи входу: email + пароль і «Continue with Google». Self sign-up увімкнено; email — ім'я користувача, підтверджується кодом.
+## Authentication
 
-**Фронтенд** — публічний клієнт без секрету. OIDC authorization code flow з PKCE через `react-oidc-context`. Scopes: `openid email profile`. Callback і logout URL: `https://<домен CloudFront>/` і `http://localhost:5173/`. До кожного запиту в `/api/*`, крім `/api/health`, додає `Authorization: Bearer <access_token>`. ID token на бекенд не надсилається.
+**Provider:** an Amazon Cognito user pool with managed login (version 2). Sign-in methods: email + password and "Continue with Google". Self sign-up is enabled; the email is the username and is confirmed with a code.
 
-**Бекенд** приймає тільки access token і перевіряє:
+**Frontend** — a public client without a secret. OIDC authorization code flow with PKCE via `react-oidc-context`. Scopes: `openid email profile`. Callback and logout URLs: the site's URL (`https://<site domain>/`) and `http://localhost:5173/`. Adds `Authorization: Bearer <access_token>` to every request to `/api/*` except `/api/health`. The ID token is not sent to the backend.
 
-1. заголовок має вигляд `Bearer <token>`;
-2. підпис RS256 ключем з JWKS пулу (за `kid`);
-3. `exp` не минув;
+**Backend** accepts only the access token and checks:
+
+1. the header has the form `Bearer <token>`;
+2. the RS256 signature with a key from the pool's JWKS (by `kid`);
+3. `exp` has not passed;
 4. `iss` == `COGNITO_AUTHORITY`;
 5. `token_use` == `access`;
-6. `client_id` == `COGNITO_CLIENT_ID` (у access token Cognito немає `aud`, тому перевіряється `client_id`).
+6. `client_id` == `COGNITO_CLIENT_ID` (Cognito access tokens have no `aud`, so `client_id` is checked).
 
-Будь-яка невдача → `401 {"detail": "invalid or missing token"}` із заголовком `WWW-Authenticate: Bearer`. Невідомий `kid`: локально — одне перезавантаження JWKS, потім 401; у Lambda — одразу 401 (ключі тільки з `COGNITO_JWKS`).
+Any failure → `401 {"detail": "invalid or missing token"}` with the `WWW-Authenticate: Bearer` header. Unknown `kid`: locally — one JWKS reload, then 401; in Lambda — 401 straight away (keys come only from `COGNITO_JWKS`).
 
-**Чому JWKS у змінній середовища:** Lambda стоїть у VPC без NAT і не має виходу в інтернет, тож не може завантажити `jwks.json`. Деплой (`make deploy-backend`) завантажує JWKS на машині, де він запущений, і записує в `COGNITO_JWKS`. Якщо Cognito змінить ключі, достатньо повторити `make deploy-backend`. Деталі — ADR 0004.
+**Why JWKS is in an environment variable:** the Lambda sits in a VPC without NAT and has no internet access, so it cannot download `jwks.json`. The deploy (`make deploy-backend`) downloads the JWKS on the machine it runs on and writes it into `COGNITO_JWKS`. If Cognito rotates its keys, running `make deploy-backend` again is enough. Details — ADR 0004. (On Render the backend has internet access and downloads the JWKS itself.)
 
-**Користувач** ідентифікується за claim `sub`. При першому автентифікованому запиті створюється рядок `users` **без ролі** (`INSERT ... ON CONFLICT (cognito_sub) DO NOTHING`, потім вибірка — безпечно при паралельних запитах).
+**The user** is identified by the `sub` claim. On the first authenticated request a `users` row is created **without a role** (`INSERT ... ON CONFLICT (cognito_sub) DO NOTHING`, then a select — safe under concurrent requests).
 
-### Ролі
+### Roles
 
-| Роль | Як отримати | Що доступно |
+| Role | How to get it | What is available |
 | --- | --- | --- |
-| `null` | одразу після реєстрації | лише `/api/me` і `POST /api/invites/redeem` |
-| `tutor` | `POST /api/me/role {"role": "tutor"}` | усе під `/api/students`, `/api/lessons`, `/api/payments`, `/api/dashboard`, `/api/homework`, `/api/quizzes`, `/api/quiz-assignments` |
-| `student` | перший використаний код запрошення з `relation = student` | `/api/portal/*`; здає ДЗ і тести; не бачить грошей і приватних нотаток |
-| `parent` | перший використаний код з `relation = parent` | `/api/portal/*`; бачить ціни, оплати й баланс, скасовує заняття; не здає ДЗ і тести |
+| `null` | right after sign-up | only `/api/me` and `POST /api/invites/redeem` |
+| `tutor` | `POST /api/me/role {"role": "tutor"}` | everything under `/api/students`, `/api/lessons`, `/api/payments`, `/api/dashboard`, `/api/homework`, `/api/quizzes`, `/api/quiz-assignments` |
+| `student` | the first redeemed invite code with `relation = student` | `/api/portal/*`; hands in homework and quizzes; does not see money or private notes |
+| `parent` | the first redeemed code with `relation = parent` | `/api/portal/*`; sees prices, payments and the balance, cancels lessons; does not hand in homework or quizzes |
 
-Роль ставиться один раз і більше не змінюється (ADR 0007). Код іншої ролі → `409 role_conflict`; репетитор кодів не використовує. Ендпоінт чужої ролі → `403 {"detail": "forbidden"}`.
+The role is set once and never changes (ADR 0007). A code for another role → `409 role_conflict`; tutors do not redeem codes. An endpoint of another role → `403 {"detail": "forbidden"}`.
 
-## Модель даних
+## Data model
 
-PostgreSQL 16 (локально) / Aurora PostgreSQL 16 (у хмарі). Усі `id` — UUID v4, генеруються бекендом. Усі `created_at` — `timestamptz not null default now()`. Усі суми — `integer` у копійках.
+PostgreSQL 16 (locally and on Render) / Aurora PostgreSQL 16 (in the target AWS setup). All `id`s are UUID v4, generated by the backend. All `created_at` are `timestamptz not null default now()`. All amounts are `integer` in kopecks.
 
-### `users` (до `0002` — `tutors`)
+### `users` (before `0002` — `tutors`)
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `cognito_sub` | text | not null, **unique** |
-| `role` | text | null до вибору; `CHECK (role IN ('tutor','student','parent'))` |
+| `role` | text | null until chosen; `CHECK (role IN ('tutor','student','parent'))` |
 | `email` | text | null |
 | `name` | text | null |
-| `cancel_notice_hours` | integer | not null, default `24`, `0..168`; має сенс лише для репетитора |
+| `cancel_notice_hours` | integer | not null, default `24`, `0..168`; meaningful only for a tutor |
+| `telegram_chat_id`, `telegram_link_token` | bigint, text | null, unique (migration `0011`): the Telegram chat for reminders and the one-time token that links it |
 | `created_at` | timestamptz | not null |
 
-Колонки `tutor_id` в усіх таблицях посилаються на `users.id`.
+The `tutor_id` columns in all tables reference `users.id`.
 
 ### `students`
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `tutor_id` | uuid | not null, FK → `tutors.id` |
-| `full_name` | text | not null, 1–200 символів |
+| `full_name` | text | not null, 1–200 characters |
 | `phone` | text | null, ≤ 32 |
 | `telegram` | text | null, ≤ 64 |
 | `parent_name` | text | null, ≤ 200 |
@@ -346,14 +353,15 @@ PostgreSQL 16 (локально) / Aurora PostgreSQL 16 (у хмарі). Усі 
 | `subject` | text | null, ≤ 100 |
 | `default_price` | integer | not null, `>= 0` |
 | `notes` | text | null, ≤ 2000 |
+| `meeting_url` | text | null (migration `0011`): the student's usual Zoom/Meet link |
 | `archived` | boolean | not null, default `false` |
 | `created_at` | timestamptz | not null |
 
-Індекси: `(tutor_id, archived)`. Додатково `unique (id, tutor_id)` — ціль для складених FK нижче.
+Indexes: `(tutor_id, archived)`. Additionally `unique (id, tutor_id)` — the target of the composite FKs below.
 
 ### `lessons`
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `tutor_id` | uuid | not null, FK → `tutors.id` |
@@ -364,16 +372,17 @@ PostgreSQL 16 (локально) / Aurora PostgreSQL 16 (у хмарі). Усі 
 | `status` | text | not null, `CHECK (status IN ('planned','done','cancelled','missed'))`, default `planned` |
 | `topic` | text | null, ≤ 200 |
 | `homework` | text | null, ≤ 2000 |
-| `notes` | text | null, ≤ 2000; приватні, учень і батьки їх не бачать |
-| `cancelled_by` | uuid | null, FK → `users.id`: хто поставив `cancelled` (репетитор або батьки) |
+| `notes` | text | null, ≤ 2000; private, students and parents do not see them |
+| `meeting_url` | text | null (migration `0011`): overrides the student's link for this lesson |
+| `cancelled_by` | uuid | null, FK → `users.id`: who set `cancelled` (the tutor or a parent) |
 | `cancelled_at` | timestamptz | null |
 | `created_at` | timestamptz | not null |
 
-FK `(student_id, tutor_id)` → `students (id, tutor_id)`: заняття фізично не може належати учневі іншого репетитора. Індекси: `(tutor_id, starts_at)`, `(student_id)`. Зміна статусу з `cancelled` на інший очищає `cancelled_by` і `cancelled_at`.
+FK `(student_id, tutor_id)` → `students (id, tutor_id)`: a lesson physically cannot belong to another tutor's student. Indexes: `(tutor_id, starts_at)`, `(student_id)`. Changing the status from `cancelled` to anything else clears `cancelled_by` and `cancelled_at`.
 
 ### `payments`
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `tutor_id` | uuid | not null, FK → `tutors.id` |
@@ -384,11 +393,11 @@ FK `(student_id, tutor_id)` → `students (id, tutor_id)`: заняття фіз
 | `comment` | text | null, ≤ 500 |
 | `created_at` | timestamptz | not null |
 
-FK `(student_id, tutor_id)` → `students (id, tutor_id)`. Індекси: `(tutor_id, paid_at)`, `(student_id)`.
+FK `(student_id, tutor_id)` → `students (id, tutor_id)`. Indexes: `(tutor_id, paid_at)`, `(student_id)`.
 
-### `student_links` — хто, крім репетитора, бачить картку
+### `student_links` — who besides the tutor sees a card
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `user_id` | uuid | not null, FK → `users.id` |
@@ -396,54 +405,54 @@ FK `(student_id, tutor_id)` → `students (id, tutor_id)`. Індекси: `(tut
 | `relation` | text | `CHECK (relation IN ('student','parent'))` |
 | `created_at` | timestamptz | not null |
 
-`unique (user_id, student_id)`; частковий унікальний індекс `uq_student_links_one_student_account (student_id) WHERE relation = 'student'` — у картки щонайбільше один акаунт учня, батьків може бути кілька. Один акаунт може бути прив'язаний до кількох карток, зокрема в різних репетиторів.
+`unique (user_id, student_id)`; the partial unique index `uq_student_links_one_student_account (student_id) WHERE relation = 'student'` — a card has at most one student account, while there can be several parents. One account can be linked to several cards, including cards of different tutors.
 
-### `invites` — одноразові коди
+### `invites` — one-time codes
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `tutor_id`, `student_id` | uuid | FK `(student_id, tutor_id)` → `students (id, tutor_id)` `ON DELETE CASCADE` |
 | `relation` | text | `student` \| `parent` |
-| `code_hash` | text | unique; SHA-256 нормалізованого коду (сам код не зберігається) |
-| `expires_at` | timestamptz | створення + 7 днів |
-| `used_at`, `used_by` | timestamptz, uuid | null до використання |
+| `code_hash` | text | unique; SHA-256 of the normalized code (the code itself is not stored) |
+| `expires_at` | timestamptz | creation + 7 days |
+| `used_at`, `used_by` | timestamptz, uuid | null until used |
 | `created_at` | timestamptz | not null |
 
-Код — 8 символів з алфавіту без `0/O/1/I/L`, показується як `XXXX-XXXX`; при введенні регістр і дефіси ігноруються.
+The code is 8 characters from an alphabet without `0/O/1/I/L`, shown as `XXXX-XXXX`; case and dashes are ignored on input.
 
-### `materials` і `material_shares` (міграція `0007`)
+### `materials` and `material_shares` (migration `0007`)
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
-| `id` | uuid | PK; `unique (id, tutor_id)` — ціль складених FK |
+| `id` | uuid | PK; `unique (id, tutor_id)` — the target of composite FKs |
 | `tutor_id` | uuid | FK → `users.id` |
 | `title` | text | 1–200 |
 | `description` | text | null, ≤ 2000 |
 | `storage_key` | text | unique; `materials/<tutor_id>/<uuid>.<pdf\|jpg\|png\|txt\|md>` |
-| `content_type` | text | `application/pdf`, `image/jpeg`, `image/png`, `text/plain`, `text/markdown` (визначається з ключа) |
-| `size_bytes` | integer | `> 0`, до 10 МБ |
-| `original_name` | text | ім'я файлу на пристрої репетитора |
+| `content_type` | text | `application/pdf`, `image/jpeg`, `image/png`, `text/plain`, `text/markdown` (derived from the key) |
+| `size_bytes` | integer | `> 0`, up to 10 MB |
+| `original_name` | text | the file name on the tutor's device |
 | `created_at` | timestamptz | not null |
 
-`material_shares`: `material_id`, `student_id`, `tutor_id`; складені FK `(material_id, tutor_id)` → `materials` і `(student_id, tutor_id)` → `students`, обидва `ON DELETE CASCADE`; `unique (material_id, student_id)`. Відкритий картці матеріал бачать її учень і батьки.
+`material_shares`: `material_id`, `student_id`, `tutor_id`; composite FKs `(material_id, tutor_id)` → `materials` and `(student_id, tutor_id)` → `students`, both `ON DELETE CASCADE`; `unique (material_id, student_id)`. A material shared with a card is visible to its student and parents.
 
-### `homework_assignments` і `homework_materials` (міграція `0008`)
+### `homework_assignments` and `homework_materials` (migration `0008`)
 
-Окреме ДЗ, не прив'язане до заняття: `id`, `tutor_id`, `student_id` (складений FK на `students`), `title` (1–200), `description` (≤ 5000), `due_at` (null), `created_at`. `homework_materials`: `homework_id` (`ON DELETE CASCADE`), `material_id` + `tutor_id` (складений FK на `materials`, `ON DELETE CASCADE`), `unique (homework_id, material_id)`. Прикріплений матеріал видно з ДЗ, навіть якщо його не відкрито окремо.
+Standalone homework not tied to a lesson: `id`, `tutor_id`, `student_id` (composite FK to `students`), `title` (1–200), `description` (≤ 5000), `due_at` (null), `created_at`. `homework_materials`: `homework_id` (`ON DELETE CASCADE`), `material_id` + `tutor_id` (composite FK to `materials`, `ON DELETE CASCADE`), `unique (homework_id, material_id)`. An attached material is visible from the homework even if it was not shared separately.
 
-### `homework_submissions` і `submission_photos`
+### `homework_submissions` and `submission_photos`
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `tutor_id`, `student_id` | uuid | FK `(student_id, tutor_id)` → `students` |
-| `lesson_id` | uuid | null; **unique** (одна відповідь на заняття), FK → `lessons.id` `ON DELETE CASCADE` |
-| `homework_id` | uuid | null; **unique** (одна відповідь на ДЗ), FK → `homework_assignments.id` `ON DELETE CASCADE` |
+| `lesson_id` | uuid | null; **unique** (one answer per lesson), FK → `lessons.id` `ON DELETE CASCADE` |
+| `homework_id` | uuid | null; **unique** (one answer per homework), FK → `homework_assignments.id` `ON DELETE CASCADE` |
 
-`CHECK (num_nonnulls(lesson_id, homework_id) = 1)`: відповідь належить або заняттю, або окремому ДЗ.
+`CHECK (num_nonnulls(lesson_id, homework_id) = 1)`: an answer belongs either to a lesson or to standalone homework.
 
-| Колонка | Тип | Обмеження |
+| Column | Type | Constraints |
 | --- | --- | --- |
 | `text` | text | null, ≤ 5000 |
 | `status` | text | `submitted` \| `reviewed` |
@@ -452,232 +461,248 @@ FK `(student_id, tutor_id)` → `students (id, tutor_id)`. Індекси: `(tut
 | `submitted_at` | timestamptz | not null |
 | `reviewed_at` | timestamptz | null |
 
-`submission_photos`: `id`, `submission_id` (FK `ON DELETE CASCADE`), `storage_key` (unique), `position`, `created_at`. До 5 фото на відповідь.
+`submission_photos`: `id`, `submission_id` (FK `ON DELETE CASCADE`), `storage_key` (unique), `position`, `created_at`. Up to 5 photos per answer.
 
-### Тести: `quizzes`, `quiz_questions`, `quiz_assignments`, `quiz_answers`
+### Quizzes: `quizzes`, `quiz_questions`, `quiz_assignments`, `quiz_answers`
 
-- `quizzes`: `id`, `tutor_id`, `title` (1–200), `description`, `status` (`draft` \| `ready`, default `ready`; міграція `0009`), `source_material_id` (null, FK → `materials` `ON DELETE SET NULL`), `created_at`, `updated_at`. Чернетку (`draft`) не можна призначити.
-- `quiz_generations` (міграція `0009`): черга генерації — `tutor_id`, `material_id` (`ON DELETE SET NULL`), `status` (`pending` \| `done` \| `failed`), `question_count` (`1..20`), `include_written`, `instructions`, `quiz_id` (готова чернетка), `error`, `claimed_at` (оренда воркера), `finished_at`, `created_at`.
-- `quiz_questions`: `quiz_id` (`ON DELETE CASCADE`), `position` (unique у межах тесту), `kind` (`single` \| `multiple` \| `text`), `prompt`, `points` (`1..100`), `options` JSONB (`[{"id": "1", "text": "..."}]`, для `text` — null), `correct_options` JSONB (`["1"]`), `reference_answer` (лише для `text`).
-- `quiz_assignments`: `tutor_id`, `quiz_id`, `student_id` (складений FK на `students`), `status` (`assigned` → `submitted` \| `needs_review` → `graded`), `due_at`, `score` (null, доки не все оцінено), `max_score`, `submitted_at`, `graded_at`, `ai_claimed_at` (оренда оцінювача). Індекси: `(tutor_id, status)`, `(student_id)`, `(status, submitted_at)`.
-- `quiz_answers`: `assignment_id` (`ON DELETE CASCADE`), `question_id`, `selected_options` JSONB, `text_answer`, `points` (null, доки не оцінено; `>= 0`), `feedback`, `graded_by` (`auto` \| `ai` \| `tutor`), `graded_at`; `unique (assignment_id, question_id)`.
+- `quizzes`: `id`, `tutor_id`, `title` (1–200), `description`, `status` (`draft` \| `ready`, default `ready`; migration `0009`), `source_material_id` (null, FK → `materials` `ON DELETE SET NULL`), `created_at`, `updated_at`. A draft cannot be assigned.
+- `quiz_generations` (migration `0009`): the generation queue — `tutor_id`, `material_id` (`ON DELETE SET NULL`), `status` (`pending` \| `done` \| `failed`), `question_count` (`1..20`), `include_written`, `instructions`, `quiz_id` (the finished draft), `error`, `claimed_at` (the worker's lease), `finished_at`, `created_at`.
+- `quiz_questions`: `quiz_id` (`ON DELETE CASCADE`), `position` (unique within the quiz), `kind` (`single` \| `multiple` \| `text`), `prompt`, `points` (`1..100`), `options` JSONB (`[{"id": "1", "text": "..."}]`, null for `text`), `correct_options` JSONB (`["1"]`), `reference_answer` (only for `text`).
+- `quiz_assignments`: `tutor_id`, `quiz_id`, `student_id` (composite FK to `students`), `status` (`assigned` → `submitted` \| `needs_review` → `graded`), `due_at`, `score` (null until everything is graded), `max_score`, `submitted_at`, `graded_at`, `ai_claimed_at` (the grader's lease). Indexes: `(tutor_id, status)`, `(student_id)`, `(status, submitted_at)`.
+- `quiz_answers`: `assignment_id` (`ON DELETE CASCADE`), `question_id`, `selected_options` JSONB, `text_answer`, `points` (null until graded; `>= 0`), `feedback`, `graded_by` (`auto` \| `ai` \| `tutor`), `graded_at`; `unique (assignment_id, question_id)`.
 
-Тест, який уже комусь призначено, змінити чи видалити не можна (`409 quiz_in_use`): відповіді посилаються на його питання.
+A quiz already assigned to someone cannot be changed or deleted (`409 quiz_in_use`): the answers reference its questions.
 
-### `subscriptions` і `billing_events` (міграція `0010`)
+### `subscriptions` and `billing_events` (migration `0010`)
 
-- `subscriptions`: одна підписка LiqPay (`order_id` unique, `tc-<hex>`): `tutor_id`, `period` (`month` \| `year`), `amount` (копійки за період), `status` (`pending` — форму видано; `active` — LiqPay списує; `cancelled` — більше не списує), `paid_until` (до коли оплачено), `cancel_requested_at`, `cancel_claimed_at`, `cancel_attempts` (скасування через воркер, до 10 спроб), `created_at`.
-- `billing_events`: кожен перевірений callback LiqPay як є (`order_id`, `payment_id`, `action`, `status`, `payload` JSONB). Частковий унікальний індекс `(payment_id, status) WHERE payment_id IS NOT NULL` не дає повтору застосуватися двічі.
+- `subscriptions`: one LiqPay subscription (`order_id` unique, `tc-<hex>`): `tutor_id`, `period` (`month` \| `year`), `amount` (kopecks per period), `status` (`pending` — the form was issued; `active` — LiqPay charges; `cancelled` — no longer charges), `paid_until` (paid up to), `cancel_requested_at`, `cancel_claimed_at`, `cancel_attempts` (cancellation through the worker, up to 10 attempts), `created_at`.
+- `billing_events`: every verified LiqPay callback as is (`order_id`, `payment_id`, `action`, `status`, `payload` JSONB). The partial unique index `(payment_id, status) WHERE payment_id IS NOT NULL` prevents a repeat from being applied twice.
 
-Pro = є підписка з `paid_until + 3 дні > зараз` (3 дні — бо LiqPay повторює невдале списання 72 години). Кожна оплата (`success` або `subscribed` з новим `payment_id`) подовжує `paid_until` на календарний місяць чи рік від `max(зараз, paid_until)`.
+Pro = there is a subscription with `paid_until + 3 days > now` (3 days because LiqPay retries a failed charge for 72 hours). Each payment (`success` or `subscribed` with a new `payment_id`) extends `paid_until` by a calendar month or year from `max(now, paid_until)`. Migration `0012` adds promo codes that grant Pro for a number of days.
 
-### Баланс
+### `reminders_sent` (migration `0011`)
+
+One row per Telegram reminder already sent: `user_id` (`ON DELETE CASCADE`), `kind` (`lesson` \| `homework` \| `quiz`), `object_id`, `sent_at`; `unique (user_id, kind, object_id)`, so a scheduler run that is late or repeated never sends the same reminder twice.
+
+### Balance
 
 ```
 balance(student) = Σ payments.amount  −  Σ lessons.price where lessons.status = 'done'
 ```
 
-- Рахується завжди за весь час, на льоту, у `services/balances.py` одним SQL-запитом. Окремої колонки балансу немає.
-- `balance < 0` — учень винен `−balance` копійок; `balance > 0` — передоплата; `0` — розрахунок.
-- `planned`, `cancelled`, `missed` на баланс не впливають. Хочеш брати гроші за пропуск — став `done`.
-- `price` заняття копіюється з `default_price` учня в момент створення; зміна `default_price` пізніше не змінює вже створені заняття.
-- Архівація не обнуляє баланс: борг архівного учня лишається боргом.
+- Always computed over all time, on the fly, in `services/balances.py` with one SQL query. There is no separate balance column.
+- `balance < 0` — the student owes `−balance` kopecks; `balance > 0` — prepayment; `0` — settled.
+- `planned`, `cancelled`, `missed` do not affect the balance. If you want to charge for a missed lesson, set it to `done`.
+- A lesson's `price` is copied from the student's `default_price` at creation time; changing `default_price` later does not change lessons that already exist.
+- Archiving does not reset the balance: an archived student's debt is still a debt.
 
 ## Backend API
 
-Загальні правила для всіх ендпоінтів:
+General rules for all endpoints:
 
-- Усе під `/api`, тіла й відповіді — JSON (`Content-Type: application/json`).
-- Дати-час — ISO 8601 **з offset**. У запитах час без offset → `422`. У відповідях час віддається в `Europe/Kyiv`, наприклад `"2026-11-13T16:00:00+02:00"`.
-- Гроші — `integer`, копійки.
-- Невідомі поля в тілі запиту → `422` (`extra="forbid"`).
-- Пагінації немає: обсяги одного репетитора малі. Списки повертаються цілком.
-- Усі ендпоінти, крім `GET /api/health`, `/api/internal/*` (токен оцінювача) і `/api/files/*` (підпис у URL, лише локально), вимагають валідний токен (інакше `401`). Ендпоінти репетитора працюють тільки з його даними, `/api/portal/*` — тільки з прив'язаними картками.
+- Everything is under `/api`, bodies and responses are JSON (`Content-Type: application/json`).
+- Date-times are ISO 8601 **with an offset**. A time without an offset in a request → `422`. Responses return time in `Europe/Kyiv`, for example `"2026-11-13T16:00:00+02:00"`.
+- Money is an `integer` in kopecks.
+- Unknown fields in a request body → `422` (`extra="forbid"`).
+- There is no pagination: one tutor's volumes are small. Lists are returned in full.
+- All endpoints except `GET /api/health`, `/api/internal/*` (the grader's token), `/api/telegram/webhook` (Telegram's secret) and `/api/files/*` (signature in the URL, local only) require a valid token (otherwise `401`). Tutor endpoints work only with the tutor's own data, `/api/portal/*` only with linked cards.
 
-### Формат помилок
+### Error format
 
-| Код | Коли | Тіло |
+| Code | When | Body |
 | --- | --- | --- |
-| `401` | Немає токена або він невалідний | `{"detail": "invalid or missing token"}` |
-| `402` | Тариф не дозволяє дію | `{"detail": "plan_read_only" \| "plan_limit" \| "pro_required"}` |
-| `403` | Роль не має доступу до ендпоінта або дії | `{"detail": "forbidden"}` |
-| `404` | Запису з таким `id` немає **або він чужий / не прив'язаний** (відповідь однакова) | `{"detail": "not found"}`; для кодів — `{"detail": "invite_not_found"}` |
-| `409` | Порушення бізнес-правила | `{"detail": "<code>"}`, коди нижче |
-| `422` | Невалідне тіло, query або шлях (у т.ч. не-UUID у `{id}`); посилання на неіснуючого/чужого учня в тілі; доменні перевірки | Стандартний формат FastAPI: `{"detail": [{"loc": [...], "msg": "...", "type": "..."}]}`; доменні — `{"detail": "<code>"}`: `student_not_found`, `material_not_found`, `bad_material_key`, `unknown_question`, `wrong_answer_shape`, `points_above_maximum`, `points_out_of_range`, `invalid_quiz` |
+| `401` | No token or an invalid one | `{"detail": "invalid or missing token"}` |
+| `402` | The plan does not allow the action | `{"detail": "plan_read_only" \| "plan_limit" \| "pro_required"}` |
+| `403` | The role has no access to the endpoint or action | `{"detail": "forbidden"}` |
+| `404` | No record with that `id` **or it belongs to someone else / is not linked** (same response) | `{"detail": "not found"}`; for codes — `{"detail": "invite_not_found"}` |
+| `409` | A business rule is violated | `{"detail": "<code>"}`, codes below |
+| `422` | Invalid body, query or path (including a non-UUID in `{id}`); a reference to a non-existent / foreign student in the body; domain checks | The standard FastAPI format: `{"detail": [{"loc": [...], "msg": "...", "type": "..."}]}`; domain ones — `{"detail": "<code>"}`: `student_not_found`, `material_not_found`, `bad_material_key`, `unknown_question`, `wrong_answer_shape`, `points_above_maximum`, `points_out_of_range`, `invalid_quiz` |
 
-Коди `409`:
+`409` codes:
 
-| Код | Коли |
+| Code | When |
 | --- | --- |
-| `student_archived` | заняття або тест для архівного учня |
-| `role_already_set` | `POST /api/me/role` для акаунта, який уже учень чи батьки |
-| `tutor_only_setting` | `cancel_notice_hours` у `PATCH /api/me` не від репетитора |
-| `role_conflict`, `already_linked`, `student_already_linked` | код запрошення не підходить цьому акаунту або картці |
-| `lesson_not_planned`, `cancel_too_late` | скасування батьками |
-| `no_homework`, `already_reviewed`, `bad_photo_key` | здача ДЗ |
-| `quiz_in_use`, `not_submitted`, `already_submitted`, `quiz_is_draft` | тести |
-| `too_many_generations` | генерація тесту: уже 3 незавершені |
-| `already_subscribed`, `billing_disabled`, `no_active_subscription` | тариф і оплата |
+| `student_archived` | a lesson or a quiz for an archived student |
+| `role_already_set` | `POST /api/me/role` for an account that is already a student or a parent |
+| `tutor_only_setting` | `cancel_notice_hours` in `PATCH /api/me` from someone who is not a tutor |
+| `role_conflict`, `already_linked`, `student_already_linked` | the invite code does not fit this account or card |
+| `lesson_not_planned`, `cancel_too_late` | cancellation by a parent |
+| `no_homework`, `already_reviewed`, `bad_photo_key` | handing in homework |
+| `quiz_in_use`, `not_submitted`, `already_submitted`, `quiz_is_draft` | quizzes |
+| `too_many_generations` | quiz generation: 3 unfinished already |
+| `already_subscribed`, `billing_disabled`, `no_active_subscription` | plan and payment |
+| `telegram_disabled` | connecting Telegram while no bot is configured |
 
-### Ізоляція даних
+### Data isolation
 
-- Кожен запит до БД фільтрується за `tutor_id` поточного репетитора — у `services/`, не в роутерах.
-- Чужий запис за `{id}` → `404`, так само як неіснуючий.
-- `student_id` у тілі `POST /api/lessons` і `POST /api/payments` має належати поточному репетитору; інакше `422 {"detail": "student_not_found"}`. Додатковий захист — складені FK у БД.
-- `tutor_id` ніколи не приймається від клієнта і ніколи не повертається.
-- Учень і батьки бачать лише картки з `student_links`; чужа картка, заняття, ДЗ чи тест → `404`. Прибрана репетитором прив'язка одразу забирає доступ.
-- Що приховано в порталі: `lessons.notes` (завжди), ціни, оплати й баланс (від учня), коментар до оплати (від усіх), правильні варіанти тесту (до здачі), еталонні відповіді (завжди).
+- Every DB query is filtered by the current tutor's `tutor_id` — in `services/`, not in the routers.
+- Someone else's record by `{id}` → `404`, the same as a non-existent one.
+- The `student_id` in the body of `POST /api/lessons` and `POST /api/payments` must belong to the current tutor; otherwise `422 {"detail": "student_not_found"}`. Composite FKs in the DB are an extra safeguard.
+- `tutor_id` is never accepted from the client and never returned.
+- Students and parents see only the cards in `student_links`; someone else's card, lesson, homework or quiz → `404`. A link removed by the tutor revokes access immediately.
+- Hidden in the portal: `lessons.notes` (always), prices, payments and the balance (from the student), the payment comment (from everyone), the correct quiz options (until handed in), reference answers (always).
 
 ---
 
 ### `GET /api/health`
 
-Без автентифікації. **Не торкається БД** (щоб health check не будив Aurora).
+No authentication. **Does not touch the DB** (so that a health check does not wake Aurora up).
 
-- Відповідь `200`: `{"status": "ok"}`
+- Response `200`: `{"status": "ok"}`
 
-### Профіль: `/api/me`
+### Profile: `/api/me`
 
-**`User`**: `id` uuid, `role` `"tutor"` \| `"student"` \| `"parent"` \| null, `email` string \| null (з claim, якщо є), `name` string \| null, `cancel_notice_hours` integer, `created_at` datetime.
+**`User`**: `id` uuid, `role` `"tutor"` \| `"student"` \| `"parent"` \| null, `email` string \| null (from the claim, if present), `name` string \| null, `cancel_notice_hours` integer, `telegram_connected` boolean, `telegram_available` boolean, `created_at` datetime.
 
-| Метод і шлях | Запит | Відповідь | Помилки |
+| Method and path | Request | Response | Errors |
 | --- | --- | --- | --- |
-| `GET /api/me` | — | `200` `User`; створюється без ролі при першому виклику | `401` |
-| `PATCH /api/me` | `name` string 1–200, `cancel_notice_hours` integer `0..168` (лише репетитор) | `200` `User` | `401`, `409 tutor_only_setting`, `422` |
-| `POST /api/me/role` | `{"role": "tutor"}` — інших значень немає (`422`) | `200` `User`; повторний виклик репетитора теж `200` | `401`, `409 role_already_set` |
+| `GET /api/me` | — | `200` `User`; created without a role on the first call | `401` |
+| `PATCH /api/me` | `name` string 1–200, `cancel_notice_hours` integer `0..168` (tutor only) | `200` `User` | `401`, `409 tutor_only_setting`, `422` |
+| `POST /api/me/role` | `{"role": "tutor"}` — there are no other values (`422`) | `200` `User`; a repeated call by a tutor is also `200` | `401`, `409 role_already_set` |
+| `POST /api/me/telegram` | — | `200` `{url}` — a `t.me` link that opens the bot with a one-time code | `401`, `409 telegram_disabled` |
+| `DELETE /api/me/telegram` | — | `204`; Telegram reminders stop | `401` |
 
-### Запрошення й доступи
+### Invites and access
 
-Репетитор (усе в межах своєї картки, чужа → `404`):
+Tutor (everything within their own card; someone else's → `404`):
 
-| Метод і шлях | Запит | Відповідь |
+| Method and path | Request | Response |
 | --- | --- | --- |
-| `POST /api/students/{id}/invites` | `{"relation": "student" \| "parent"}` | `201` `{id, relation, expires_at, created_at, code}` — `code` лише тут; `409 student_already_linked`, якщо в картки вже є акаунт учня |
-| `GET /api/students/{id}/invites` | — | `200` активні (невикористані, нестрочені) коди без самого коду |
+| `POST /api/students/{id}/invites` | `{"relation": "student" \| "parent"}` | `201` `{id, relation, expires_at, created_at, code}` — `code` is returned only here; `409 student_already_linked` if the card already has a student account |
+| `GET /api/students/{id}/invites` | — | `200` active (unused, unexpired) codes without the code itself |
 | `DELETE /api/students/{id}/invites/{invite_id}` | — | `204` |
 | `GET /api/students/{id}/links` | — | `200` `[{id, relation, user_name, user_email, created_at}]` |
-| `DELETE /api/students/{id}/links/{link_id}` | — | `204`; акаунт втрачає доступ до картки, роль лишається |
+| `DELETE /api/students/{id}/links/{link_id}` | — | `204`; the account loses access to the card, the role stays |
 
-Будь-який акаунт, крім репетитора: `POST /api/invites/redeem` `{"code": "K7PM-4XQR"}` → `200` `{student_id, student_full_name, relation}`. Перший код ставить роль. Помилки: `404 invite_not_found` (немає, використаний, прострочений, відкликаний), `409 role_conflict | already_linked | student_already_linked`.
+Any account except a tutor: `POST /api/invites/redeem` `{"code": "K7PM-4XQR"}` → `200` `{student_id, student_full_name, relation}`. The first code sets the role. Errors: `404 invite_not_found` (missing, used, expired, revoked), `409 role_conflict | already_linked | student_already_linked`.
 
-### Портал учня й батьків: `/api/portal`
+### Student and parent portal: `/api/portal`
 
-Роль `student` або `parent`, інакше `403`.
+Role `student` or `parent`, otherwise `403`.
 
-| Метод і шлях | Хто | Відповідь |
+| Method and path | Who | Response |
 | --- | --- | --- |
-| `GET /api/portal/students` | обидва | `[{id, full_name, subject, tutor_name, relation, archived, balance}]`; `balance` — лише батькам, учню `null` |
-| `GET /api/portal/lessons` | обидва | query `from`, `to`, `student_id`; `PortalLesson[]` за `starts_at` |
-| `GET /api/portal/lessons/{id}` | обидва | `PortalLesson` |
-| `POST /api/portal/lessons/{id}/cancel` | батьки (учень → `403`) | `PortalLesson` зі статусом `cancelled`; `409 lesson_not_planned`, `409 cancel_too_late` |
-| `GET /api/portal/payments` | батьки (учень → `403`) | query `student_id`, `from`, `to`; `[{id, student_id, student_full_name, amount, paid_at, method}]` |
+| `GET /api/portal/students` | both | `[{id, full_name, subject, tutor_name, relation, archived, balance}]`; `balance` — parents only, `null` for the student |
+| `GET /api/portal/lessons` | both | query `from`, `to`, `student_id`; `PortalLesson[]` by `starts_at` |
+| `GET /api/portal/lessons/{id}` | both | `PortalLesson` |
+| `POST /api/portal/lessons/{id}/cancel` | parent (student → `403`) | `PortalLesson` with status `cancelled`; `409 lesson_not_planned`, `409 cancel_too_late` |
+| `GET /api/portal/payments` | parent (student → `403`) | query `student_id`, `from`, `to`; `[{id, student_id, student_full_name, amount, paid_at, method}]` |
 
-**`PortalLesson`**: `id`, `student_id`, `student_full_name`, `tutor_name`, `starts_at`, `duration_minutes`, `status`, `topic`, `homework`, `price` (лише батькам), `cancelled_at`, `cancelled_by_role`, `can_cancel` (для поточного користувача), `cancel_deadline`. Поля `notes` немає.
+**`PortalLesson`**: `id`, `student_id`, `student_full_name`, `tutor_name`, `starts_at`, `duration_minutes`, `status`, `topic`, `homework`, `price` (parents only), `join_url` (the meeting link, if the tutor gave one), `cancelled_at`, `cancelled_by_role`, `can_cancel` (for the current user), `cancel_deadline`. There is no `notes` field.
 
-**Правило скасування:** лише `planned`, лише батьки, і не пізніше `starts_at − cancel_notice_hours` репетитора (за замовчуванням 24 год). Пізніше скасувати може тільки репетитор через `PATCH /api/lessons/{id}/status`. Скасоване заняття на баланс не впливає. Репетитор бачить у `Lesson` поля `cancelled_at` і `cancelled_by_role` (`tutor` \| `parent`).
+**Cancellation rule:** only `planned`, only parents, and no later than `starts_at − cancel_notice_hours` of the tutor (24 h by default). After that only the tutor can cancel, via `PATCH /api/lessons/{id}/status`. A cancelled lesson does not affect the balance. In `Lesson` the tutor sees the fields `cancelled_at` and `cancelled_by_role` (`tutor` \| `parent`).
 
-### Домашні завдання
+### Homework
 
-Учень (батьки на запис → `403`; заняття без `homework` → `409 no_homework`; після перевірки → `409 already_reviewed`):
+Student (parents writing → `403`; a lesson without `homework` → `409 no_homework`; after review → `409 already_reviewed`):
 
-| Метод і шлях | Запит | Відповідь |
+| Method and path | Request | Response |
 | --- | --- | --- |
-| `POST /api/portal/lessons/{id}/homework/uploads` | `{content_type: "image/jpeg" \| "image/png" \| "image/heic", size_bytes: 1..10485760}` | `{url, fields, key, expires_at}` — браузер шле файл `multipart/form-data` на `url`: усі `fields`, потім `file`. Посилання діє 15 хвилин. |
-| `PUT /api/portal/lessons/{id}/homework` | `{text?: string ≤ 5000, photo_keys?: string[] ≤ 5}` (хоч щось одне) | `200` `Homework`; замінює попередню відповідь, доки репетитор не перевірив; чужий ключ → `409 bad_photo_key` |
-| `GET /api/portal/lessons/{id}/homework` | учень і батьки | `200` `Homework` або `404`, якщо ще не здано |
+| `POST /api/portal/lessons/{id}/homework/uploads` | `{content_type: "image/jpeg" \| "image/png" \| "image/heic", size_bytes: 1..10485760}` | `{url, fields, key, expires_at}` — the browser sends the file as `multipart/form-data` to `url`: all `fields`, then `file`. The link is valid for 15 minutes. |
+| `PUT /api/portal/lessons/{id}/homework` | `{text?: string ≤ 5000, photo_keys?: string[] ≤ 5}` (at least one) | `200` `Homework`; replaces the previous answer until the tutor has reviewed it; someone else's key → `409 bad_photo_key` |
+| `GET /api/portal/lessons/{id}/homework` | student and parent | `200` `Homework` or `404` if not handed in yet |
 
-Репетитор: `GET /api/homework?status=submitted&student_id=` (черга обох видів ДЗ, від найстарішої), `GET /api/homework/{id}`, `PATCH /api/homework/{id}/review` `{feedback?: string ≤ 2000, grade?: 1..12}` (хоч щось одне) → статус `reviewed`.
+Tutor: `GET /api/homework?status=submitted&student_id=` (the queue of both kinds of homework, oldest first), `GET /api/homework/{id}`, `PATCH /api/homework/{id}/review` `{feedback?: string ≤ 2000, grade?: 1..12}` (at least one) → status `reviewed`.
 
-**`Homework`** (відповідь): `id`, `lesson_id` і `lesson_starts_at` (для ДЗ із заняття) або `homework_id`, `title`, `due_at` (для окремого ДЗ), `task` (текст завдання), `student_id`, `student_full_name`, `text`, `photos: [{key, url}]` (`url` — тимчасове, 15 хвилин), `status`, `feedback`, `grade`, `submitted_at`, `reviewed_at`.
+**`Homework`** (an answer): `id`, `lesson_id` and `lesson_starts_at` (for homework from a lesson) or `homework_id`, `title`, `due_at` (for standalone homework), `task` (the assignment text), `student_id`, `student_full_name`, `text`, `photos: [{key, url}]` (`url` is temporary, 15 minutes), `status`, `feedback`, `grade`, `submitted_at`, `reviewed_at`.
 
-**Окремі ДЗ.** Репетитор: `POST /api/homework-assignments` `{student_id, title, description?, due_at?, material_ids: [] ≤ 20}` → `201` (`422 student_not_found`, `422 material_not_found`, `409 student_archived`), `GET /api/homework-assignments?student_id=`, `GET`/`PATCH`/`DELETE /api/homework-assignments/{id}` (видалення забирає й відповідь). Учень і батьки: `GET /api/portal/homework-assignments`, `GET /api/portal/homework-assignments/{id}` (з посиланнями на прикріплені матеріали й відповіддю); учень здає так само, як ДЗ із заняття: `POST .../{id}/uploads`, `PUT .../{id}/submission`. **`HomeworkAssignment`**: `id`, `student_id`, `student_full_name`, `title`, `description`, `due_at`, `materials: [{id, title, content_type, original_name, download_url}]`, `submission_status` (null — не здано), `grade`, `created_at`; деталі містять ще `submission`.
+**Standalone homework.** Tutor: `POST /api/homework-assignments` `{student_id, title, description?, due_at?, material_ids: [] ≤ 20}` → `201` (`422 student_not_found`, `422 material_not_found`, `409 student_archived`), `GET /api/homework-assignments?student_id=`, `GET`/`PATCH`/`DELETE /api/homework-assignments/{id}` (deleting also removes the answer). Student and parent: `GET /api/portal/homework-assignments`, `GET /api/portal/homework-assignments/{id}` (with links to the attached materials and the answer); the student hands it in the same way as homework from a lesson: `POST .../{id}/uploads`, `PUT .../{id}/submission`. **`HomeworkAssignment`**: `id`, `student_id`, `student_full_name`, `title`, `description`, `due_at`, `materials: [{id, title, content_type, original_name, download_url}]`, `submission_status` (null — not handed in), `grade`, `created_at`; the details also include `submission`.
 
-### Матеріали
+### Materials
 
-Репетитор: `POST /api/materials/uploads` `{content_type: PDF | JPEG | PNG | TXT | MD, size_bytes ≤ 10 МБ}` → підписана ціль (як для фото ДЗ); після завантаження `POST /api/materials` `{key, title, description?, original_name, size_bytes}` → `201` (ключ, виданий не цьому репетитору → `422 bad_material_key`); `GET /api/materials`, `GET`/`PATCH`/`DELETE /api/materials/{id}`; `PUT /api/materials/{id}/shares` `{student_ids}` — замінює список карток, яким відкрито матеріал (`422 student_not_found`). **`Material`**: `id`, `title`, `description`, `content_type`, `size_bytes`, `original_name`, `download_url` (15 хвилин), `shared_with: [{student_id, full_name}]`, `created_at`.
+Tutor: `POST /api/materials/uploads` `{content_type: PDF | JPEG | PNG | TXT | MD, size_bytes ≤ 10 MB}` → a signed target (as for homework photos); after the upload `POST /api/materials` `{key, title, description?, original_name, size_bytes}` → `201` (a key not issued to this tutor → `422 bad_material_key`); `GET /api/materials`, `GET`/`PATCH`/`DELETE /api/materials/{id}`; `PUT /api/materials/{id}/shares` `{student_ids}` — replaces the list of cards the material is shared with (`422 student_not_found`). **`Material`**: `id`, `title`, `description`, `content_type`, `size_bytes`, `original_name`, `download_url` (15 minutes), `shared_with: [{student_id, full_name}]`, `created_at`.
 
-Учень і батьки: `GET /api/portal/materials?student_id=` — матеріали, відкриті їхнім карткам, з `download_url` і `student_ids` (для кого з їхніх дітей); списку інших учнів не видно.
+Student and parent: `GET /api/portal/materials?student_id=` — materials shared with their cards, with `download_url` and `student_ids` (for which of their children); the list of other students is not visible.
 
-Локально (лише `STORAGE_BACKEND=local`) завантаження й видача йдуть через `POST /api/files/upload` і `GET /api/files/{key}?expires=&signature=` — HMAC-підпис замість токена, як у presigned S3. У хмарі цих ендпоінтів немає (`404`), браузер працює з S3 напряму.
+Locally (only with `STORAGE_BACKEND=local`) uploads and downloads go through `POST /api/files/upload` and `GET /api/files/{key}?expires=&signature=` — an HMAC signature instead of a token, as with presigned S3. In the cloud these endpoints do not exist (`404`), the browser talks to S3 directly.
 
-### Тести (квізи)
+### Quizzes
 
-Репетитор:
+Tutor:
 
-| Метод і шлях | Що робить |
+| Method and path | What it does |
 | --- | --- |
-| `GET /api/quizzes`, `POST /api/quizzes` | список (`question_count`, `max_score`, `assignment_count`) і створення |
-| `GET`, `PUT`, `DELETE /api/quizzes/{id}` | читання (з правильними відповідями й еталонами), заміна, видалення; змінювати й видаляти — лише поки не призначено (`409 quiz_in_use`) |
-| `POST /api/quizzes/{id}/publish` | Чернетку (`draft`) зробити готовою (`ready`) |
-| `POST /api/quizzes/{id}/assignments` | `{student_id, due_at?}` → `201` `Assignment`; чужий учень → `422 student_not_found`, архівний → `409 student_archived`, чернетка → `409 quiz_is_draft` |
-| `POST /api/materials/{id}/generate-quiz` | `{question_count: 1..20 (8), include_written: bool (true), instructions?: ≤ 1000}` → `202` `Generation` зі статусом `pending`; щонайбільше 3 незавершені генерації на репетитора (`409 too_many_generations`) |
-| `GET /api/quiz-generations`, `GET /api/quiz-generations/{id}` | Останні 50 генерацій: `{id, material_id, material_title, status, question_count, include_written, instructions, quiz_id, error, created_at, finished_at}` |
-| `GET /api/quiz-assignments?student_id=&status=` | `?status=needs_review` — черга письмових відповідей для репетитора |
-| `GET`, `DELETE /api/quiz-assignments/{id}` | деталі з відповідями й балами; видалення призначення |
-| `PATCH /api/quiz-assignments/{id}/answers/{question_id}` | `{points: 0..max, feedback?}` — поставити або змінити бали будь-якої відповіді; `409 not_submitted`, `422 points_above_maximum` |
+| `GET /api/quizzes`, `POST /api/quizzes` | list (`question_count`, `max_score`, `assignment_count`) and create |
+| `GET`, `PUT`, `DELETE /api/quizzes/{id}` | read (with the correct answers and references), replace, delete; changing and deleting is allowed only until assigned (`409 quiz_in_use`) |
+| `POST /api/quizzes/{id}/publish` | Turn a draft (`draft`) into a finished quiz (`ready`) |
+| `POST /api/quizzes/{id}/assignments` | `{student_id, due_at?}` → `201` `Assignment`; someone else's student → `422 student_not_found`, an archived one → `409 student_archived`, a draft → `409 quiz_is_draft` |
+| `POST /api/materials/{id}/generate-quiz` | `{question_count: 1..20 (8), include_written: bool (true), instructions?: ≤ 1000}` → `202` `Generation` with status `pending`; at most 3 unfinished generations per tutor (`409 too_many_generations`) |
+| `GET /api/quiz-generations`, `GET /api/quiz-generations/{id}` | The last 50 generations: `{id, material_id, material_title, status, question_count, include_written, instructions, quiz_id, error, created_at, finished_at}` |
+| `GET /api/quiz-assignments?student_id=&status=` | `?status=needs_review` — the tutor's queue of written answers |
+| `GET`, `DELETE /api/quiz-assignments/{id}` | details with answers and points; deleting an assignment |
+| `PATCH /api/quiz-assignments/{id}/answers/{question_id}` | `{points: 0..max, feedback?}` — set or change the points of any answer; `409 not_submitted`, `422 points_above_maximum` |
 
-**`QuizIn`**: `title` 1–200, `description?` ≤ 2000, `questions` 1–50. Питання: `kind`, `prompt` 1–2000, `points` 1–100 (default 1); для `single`/`multiple` — `options: [{text, correct}]` (2–10; `single` — рівно один правильний, `multiple` — хоча б один); для `text` — `reference_answer` 1–2000 і без `options`. Id варіантів — `"1"`, `"2"`, … у порядку подання.
+**`QuizIn`**: `title` 1–200, `description?` ≤ 2000, `questions` 1–50. A question: `kind`, `prompt` 1–2000, `points` 1–100 (default 1); for `single`/`multiple` — `options: [{text, correct}]` (2–10; `single` — exactly one correct, `multiple` — at least one); for `text` — `reference_answer` 1–2000 and no `options`. Option ids are `"1"`, `"2"`, … in the order given.
 
-Учень і батьки: `GET /api/portal/quiz-assignments?student_id=`, `GET /api/portal/quiz-assignments/{id}`. Здає лише учень: `POST /api/portal/quiz-assignments/{id}/submit` `{answers: [{question_id, selected_options?, text_answer? ≤ 2000}]}` — один раз (`409 already_submitted`), батьки → `403`.
+Student and parent: `GET /api/portal/quiz-assignments?student_id=`, `GET /api/portal/quiz-assignments/{id}`. Only the student hands it in: `POST /api/portal/quiz-assignments/{id}/submit` `{answers: [{question_id, selected_options?, text_answer? ≤ 2000}]}` — once (`409 already_submitted`), parent → `403`.
 
-**Оцінювання при здачі:**
-- `single` / `multiple` — повні бали лише за точно правильний набір, інакше 0 (`graded_by = auto`);
-- порожня письмова відповідь — 0 одразу;
-- непорожня письмова — статус `submitted`, чекає на ШІ-оцінювача; при `AI_GRADER=off` — `needs_review`, чекає на репетитора;
-- коли бали є в усіх відповідей — `graded`, `score` = сума.
+**Grading on hand-in:**
+- `single` / `multiple` — full points only for the exactly correct set, otherwise 0 (`graded_by = auto`);
+- an empty written answer — 0 at once;
+- a non-empty written answer — status `submitted`, waiting for the AI grader; with `AI_GRADER=off` — `needs_review`, waiting for the tutor;
+- once every answer has points — `graded`, `score` = the sum.
 
-Учню й батькам правильні варіанти показуються лише після здачі, еталонні відповіді — ніколи.
+Students and parents see the correct options only after handing in, and never see the reference answers.
 
-### ШІ-оцінювач: `/api/internal/grading`
+### AI grader: `/api/internal/grading`
 
-Лише для Lambda оцінювача; заголовок `X-Grader-Token` (порівняння за сталий час). Без налаштованого `GRADER_TOKEN` — `404`, з неправильним — `401`.
+Only for the grader Lambda; the `X-Grader-Token` header (constant-time comparison). Without a configured `GRADER_TOKEN` — `404`, with a wrong one — `401`.
 
-| Метод і шлях | Що робить |
+| Method and path | What it does |
 | --- | --- |
-| `POST /api/internal/grading/claim?limit=1..20` | Орендує на 5 хвилин найстаріші `submitted` тести, які ніхто не тримає, і віддає їхні неоцінені письмові відповіді: `[{assignment_id, quiz_title, questions: [{question_id, prompt, reference_answer, max_points, answer}]}]`. Два запуски одночасно не отримають той самий тест — двічі не платимо. |
-| `POST /api/internal/grading/{id}/result` | `{model, results: [{question_id, points, feedback?}]}`; бали `0..max` (`422 points_out_of_range`). Відповіді без балів ідуть репетитору (`needs_review`). Тест, що вже не чекає на оцінювача → `404 not_waiting_for_grader`. |
-| `POST /api/internal/grading/{id}/failed` | Відмова моделі чи помилка → `needs_review`. |
+| `POST /api/internal/grading/claim?limit=1..20` | Leases for 5 minutes the oldest `submitted` quizzes nobody holds and returns their ungraded written answers: `[{assignment_id, quiz_title, questions: [{question_id, prompt, reference_answer, max_points, answer}]}]`. Two simultaneous runs never get the same quiz — we never pay twice. |
+| `POST /api/internal/grading/{id}/result` | `{model, results: [{question_id, points, feedback?}]}`; points `0..max` (`422 points_out_of_range`). Answers without points go to the tutor (`needs_review`). A quiz no longer waiting for the grader → `404 not_waiting_for_grader`. |
+| `POST /api/internal/grading/{id}/failed` | A model refusal or an error → `needs_review`. |
 
-Оцінювач не повторює невдалі спроби: будь-яка помилка передає тест репетитору, тож зламана модель чи промпт не можуть витрачати гроші в циклі.
+The grader does not retry failed attempts: any error hands the quiz to the tutor, so a broken model or prompt cannot spend money in a loop.
 
-### Генерація тестів: `/api/internal/generation`
+### Quiz generation: `/api/internal/generation`
 
-Той самий воркер і той самий токен. Після оцінювання він забирає черговий запит на генерацію:
+The same worker and the same token. After grading, it picks up the next generation request:
 
-| Метод і шлях | Що робить |
+| Method and path | What it does |
 | --- | --- |
-| `POST /api/internal/generation/claim?limit=1..5` | Орендує на 5 хвилин найстаріші `pending` запити: `[{job_id, material_title, content_type, download_url, question_count, include_written, instructions}]`. `download_url` — підписане посилання на файл (S3 або локальний `/api/files`). Запит із видаленим матеріалом одразу стає `failed`. |
-| `POST /api/internal/generation/{id}/result` | `{model, quiz}` — тіло як у `POST /api/quizzes`. API перевіряє його тими самими правилами; невалідне → `422 invalid_quiz` і запит `failed`. Валідне зберігається як **чернетка** (`status = draft`, `source_material_id`). |
-| `POST /api/internal/generation/{id}/failed` | `{reason}` → запит `failed`. |
+| `POST /api/internal/generation/claim?limit=1..5` | Leases for 5 minutes the oldest `pending` requests: `[{job_id, material_title, content_type, download_url, question_count, include_written, instructions}]`. `download_url` is a signed link to the file (S3 or the local `/api/files`). A request whose material was deleted becomes `failed` at once. |
+| `POST /api/internal/generation/{id}/result` | `{model, quiz}` — the body as in `POST /api/quizzes`. The API validates it with the same rules; invalid → `422 invalid_quiz` and the request becomes `failed`. A valid one is saved as a **draft** (`status = draft`, `source_material_id`). |
+| `POST /api/internal/generation/{id}/failed` | `{reason}` → the request becomes `failed`. |
 
-Воркер передає Claude Haiku 5.5 матеріал як є: PDF — блоком `document`, фото — блоком `image`, текст — екранованим текстом. Системний промпт оголошує матеріал і побажання репетитора лише даними. Відповідь приходить через structured output; питання, що порушують правила (неправильна кількість правильних варіантів, письмове без еталона, невідомий тип), відкидаються, бали обрізаються до `1..10`. Повторів немає, як і в оцінювача.
+The worker passes the material to Claude Haiku 5.5 as is: a PDF as a `document` block, a photo as an `image` block, text as escaped text. The system prompt declares the material and the tutor's wishes to be data only. The response comes through structured output; questions that break the rules (wrong number of correct options, a written question without a reference, an unknown type) are dropped, points are clipped to `1..10`. There are no retries, as with the grader.
 
-### Тариф і оплата: `/api/billing`
+### Plan and payment: `/api/billing`
 
-Репетитор (`403` для інших ролей):
+Tutor (`403` for other roles):
 
-| Метод і шлях | Що робить |
+| Method and path | What it does |
 | --- | --- |
 | `GET /api/billing` | `{plan: "free" \| "pro", pro_until, period, subscription_status, cancel_pending, active_students, free_student_limit: 3, read_only, prices: {month: 19900, year: 199000}, billing_mode: "liqpay" \| "demo" \| "disabled"}` |
-| `POST /api/billing/checkout` | `{period: "month" \| "year"}` → `{mode, url, data, signature, order_id}`. API створює `subscriptions` зі статусом `pending` і **підписує форму LiqPay локально** (без звернення до LiqPay): `action = "subscribe"`, `amount` у гривнях, `currency = "UAH"`, `subscribe_periodicity`, `subscribe_date_start` (зараз або кінець оплаченого Pro), `server_url = {PUBLIC_API_URL}/api/billing/liqpay/callback`, `result_url = {SITE_URL}/billing?checkout=done`, `sandbox = "1"` з `LIQPAY_SANDBOX=1`. Браузер POST-ить `data` і `signature` формою на `url` (`https://www.liqpay.ua/api/3/checkout`). `409 already_subscribed`, `409 billing_disabled`. |
-| `POST /api/billing/cancel` | Зупинити автосписання; оплачений час лишається. `409 no_active_subscription`. |
-| `POST /api/billing/demo/pay` | Лише демо-режим (локально без ключів): `{order_id}` → підписує callback демо-ключем і проганяє той самий обробник. В інших режимах `404`. |
-| `POST /api/billing/liqpay/callback` | `server_url` для LiqPay: form-поля `data`, `signature`, без токена — справжність доводить підпис (`400`, якщо не збігся). Оплата (`success`/`subscribed`, а в sandbox і `sandbox`) подовжує Pro; `unsubscribed` → `cancelled`; інше лише записується. Завжди `200` для валідного підпису, щоб LiqPay не повторював. |
+| `POST /api/billing/checkout` | `{period: "month" \| "year"}` → `{mode, url, data, signature, order_id}`. The API creates a `subscriptions` row with status `pending` and **signs the LiqPay form locally** (without calling LiqPay): `action = "subscribe"`, `amount` in hryvnias, `currency = "UAH"`, `subscribe_periodicity`, `subscribe_date_start` (now or the end of paid Pro), `server_url = {PUBLIC_API_URL}/api/billing/liqpay/callback`, `result_url = {SITE_URL}/billing?checkout=done`, `sandbox = "1"` with `LIQPAY_SANDBOX=1`. The browser POSTs `data` and `signature` as a form to `url` (`https://www.liqpay.ua/api/3/checkout`). `409 already_subscribed`, `409 billing_disabled`. |
+| `POST /api/billing/cancel` | Stop automatic renewal; the paid time remains. `409 no_active_subscription`. |
+| `POST /api/billing/demo/pay` | Demo mode only (locally without keys): `{order_id}` → signs a callback with a demo key and runs the same handler. In other modes `404`. |
+| `POST /api/billing/liqpay/callback` | LiqPay's `server_url`: form fields `data`, `signature`, no token — the signature proves authenticity (`400` if it does not match). A payment (`success`/`subscribed`, and in sandbox also `sandbox`) extends Pro; `unsubscribed` → `cancelled`; anything else is only recorded. Always `200` for a valid signature, so that LiqPay does not retry. |
+| `POST /api/billing/promo` | Redeem a promo code from `PROMO_CODES` → Pro for the code's number of days. |
 
-**Підпис** — як в офіційних SDK LiqPay (версія API 3): `data = base64(JSON)`, `signature = base64(SHA-1(private_key + data + private_key))`. Текст поточної документації для версії 7 згадує SHA3-256, тоді як її ж приклади — SHA-1, тож callback приймається з будь-яким із двох (обидва потребують приватного ключа). Перевірити на sandbox, що саме надсилає LiqPay.
+**The signature** — as in the official LiqPay SDKs (API version 3): `data = base64(JSON)`, `signature = base64(SHA-1(private_key + data + private_key))`. The text of the current documentation for version 7 mentions SHA3-256, while its own examples use SHA-1, so the callback is accepted with either of the two (both require the private key). Check on sandbox what LiqPay actually sends.
 
-**Обмеження за тарифом** (усі через `services/billing.py`):
-- `POST /api/students` і розархівування понад 3 активних учнів без Pro → `402 plan_limit`;
-- генерація тестів без Pro → `402 pro_required`; письмові відповіді без Pro не йдуть до ШІ, а одразу до репетитора (`needs_review`);
-- кабінет лише для перегляду (`read_only`) → будь-який `POST/PUT/PATCH/DELETE` репетитора на його роутерах → `402 plan_read_only`; дозволені `DELETE /api/students/{id}` (архівація), `/api/billing/*`, `/api/me`. Портал учня й батьків не обмежується.
+**Plan limits** (all through `services/billing.py`):
+- `POST /api/students` and un-archiving beyond 3 active students without Pro → `402 plan_limit`;
+- quiz generation without Pro → `402 pro_required`; without Pro, written answers do not go to the AI but straight to the tutor (`needs_review`);
+- a read-only cabinet (`read_only`) → any tutor `POST/PUT/PATCH/DELETE` on the tutor's routers → `402 plan_read_only`; allowed: `DELETE /api/students/{id}` (archiving), `/api/billing/*`, `/api/me`. The student and parent portal is not restricted.
 
-**Скасування в LiqPay** вимагає запиту сервер-сервер (`action = "unsubscribe"` на `https://www.liqpay.ua/api/request`), а API Lambda без інтернету. Тому API підписує запит, а ШІ-воркер поза VPC лише пересилає його (`/api/internal/billing/claim` → LiqPay → `/api/internal/billing/{id}/result`); приватного ключа воркер не має. Невдалі спроби повторюються наступним запуском (до 10). Воркер робить це й з `GRADER=off`. У демо-режимі скасування миттєве.
+**Cancelling in LiqPay** requires a server-to-server request (`action = "unsubscribe"` to `https://www.liqpay.ua/api/request`), while the API Lambda has no internet. So the API signs the request, and the AI worker outside the VPC only forwards it (`/api/internal/billing/claim` → LiqPay → `/api/internal/billing/{id}/result`); the worker does not have the private key. Failed attempts are retried on the next run (up to 10). The worker does this even with `GRADER=off`. In demo mode cancellation is immediate.
 
-### Учні
+### Telegram: `/api/telegram/webhook` and `/api/internal/reminders/run`
 
-**`Student`** (відповідь):
+- `POST /api/telegram/webhook` — Telegram delivers the bot's messages here; checked by the secret Telegram echoes in `X-Telegram-Bot-Api-Secret-Token`. `/start <token>` links the chat to the account that requested the link, `/stop` unlinks it.
+- `POST /api/internal/reminders/run` — called by the scheduler (cron-job.org or GitHub Actions) with `X-Cron-Token`; sends the reminders that are due: a lesson in the next ~75 minutes (to the tutor, the student and the parents), a homework or quiz deadline within 24 hours that is not handed in (to the student and the parents). Each reminder is sent once (`reminders_sent`).
+- `POST /api/internal/telegram/webhook` — with `X-Cron-Token`, points the bot at this server; run once after deployment.
 
-| Поле | Тип |
+Without `CRON_TOKEN` the internal endpoints answer `404`.
+
+### Students
+
+**`Student`** (response):
+
+| Field | Type |
 | --- | --- |
 | `id` | string (uuid) |
 | `full_name` | string |
@@ -686,281 +711,285 @@ balance(student) = Σ payments.amount  −  Σ lessons.price where lessons.statu
 | `parent_name` | string \| null |
 | `parent_phone` | string \| null |
 | `subject` | string \| null |
-| `default_price` | integer (копійки) |
+| `default_price` | integer (kopecks) |
 | `notes` | string \| null |
+| `meeting_url` | string \| null |
 | `archived` | boolean |
 | `created_at` | string (datetime) |
-| `balance` | integer (копійки; від'ємний = борг) |
+| `balance` | integer (kopecks; negative = debt) |
 
-**`StudentCreate`** (тіло POST): `full_name` string 1–200 **обов'язкове**; `default_price` integer `0..100000000` **обов'язкове**; `phone`, `telegram`, `parent_name`, `parent_phone`, `subject`, `notes` — string \| null, необов'язкові, з обмеженнями довжини з таблиці `students`. Рядки обрізаються від пробілів; порожній рядок зберігається як `null`.
+**`StudentCreate`** (POST body): `full_name` string 1–200 **required**; `default_price` integer `0..100000000` **required**; `phone`, `telegram`, `parent_name`, `parent_phone`, `subject`, `notes` — string \| null, optional, with the length limits from the `students` table; `meeting_url` — an `http(s)://` link ≤ 500 or null. Strings are trimmed; an empty string is stored as `null`.
 
-**`StudentUpdate`** (тіло PATCH): ті самі поля плюс `archived` boolean, усі необов'язкові. Оновлюються тільки передані поля. `full_name`, `default_price`, `archived` не можуть бути `null` → `422`.
+**`StudentUpdate`** (PATCH body): the same fields plus `archived` boolean, all optional. Only the fields sent are updated. `full_name`, `default_price`, `archived` cannot be `null` → `422`.
 
-| Метод і шлях | Запит | Відповідь | Помилки |
+| Method and path | Request | Response | Errors |
 | --- | --- | --- | --- |
-| `GET /api/students` | query `archived`: boolean, default `false` | `200` `Student[]`, сортування за `full_name` | `401`, `422` |
+| `GET /api/students` | query `archived`: boolean, default `false` | `200` `Student[]`, sorted by `full_name` | `401`, `422` |
 | `POST /api/students` | `StudentCreate` | `201` `Student` (`balance` = 0) | `401`, `422` |
-| `GET /api/students/{id}` | — | `200` `Student` (архівні теж віддаються) | `401`, `404`, `422` |
+| `GET /api/students/{id}` | — | `200` `Student` (archived ones are returned too) | `401`, `404`, `422` |
 | `PATCH /api/students/{id}` | `StudentUpdate` | `200` `Student` | `401`, `404`, `422` |
-| `DELETE /api/students/{id}` | — | `204` без тіла. Це **архівація** (`archived = true`), не видалення; повторний виклик теж `204`. Розархівувати — `PATCH {"archived": false}`. | `401`, `404`, `422` |
+| `DELETE /api/students/{id}` | — | `204` with no body. This is **archiving** (`archived = true`), not deletion; a repeated call is also `204`. To un-archive — `PATCH {"archived": false}`. | `401`, `404`, `422` |
 
-### Заняття
+### Lessons
 
-**`Lesson`** (відповідь):
+**`Lesson`** (response):
 
-| Поле | Тип |
+| Field | Type |
 | --- | --- |
 | `id` | string (uuid) |
 | `student_id` | string (uuid) |
 | `student_full_name` | string |
 | `starts_at` | string (datetime) |
 | `duration_minutes` | integer |
-| `price` | integer (копійки) |
+| `price` | integer (kopecks) |
 | `status` | `"planned"` \| `"done"` \| `"cancelled"` \| `"missed"` |
 | `topic` | string \| null |
 | `homework` | string \| null |
 | `notes` | string \| null |
+| `meeting_url` | string \| null — this lesson's own link |
+| `join_url` | string \| null — where to join: this lesson's link or the student's |
 | `created_at` | string (datetime) |
 
-**`LessonCreate`**: `student_id` uuid **обов'язкове**; `starts_at` datetime з offset **обов'язкове**; `duration_minutes` integer `1..720`, default `60`; `price` integer `0..100000000`, default — `default_price` учня; `status`, default `planned` (дозволяє внести вже проведене заняття заднім числом); `topic`, `homework`, `notes` — string \| null.
+**`LessonCreate`**: `student_id` uuid **required**; `starts_at` datetime with offset **required**; `duration_minutes` integer `1..720`, default `60`; `price` integer `0..100000000`, default — the student's `default_price`; `status`, default `planned` (allows entering a lesson already held after the fact); `topic`, `homework`, `notes`, `meeting_url` — string \| null.
 
-**`LessonUpdate`**: `starts_at`, `duration_minutes`, `price`, `topic`, `homework`, `notes` — усі необов'язкові. `student_id` і `status` тут **не приймаються** (`422`): учня в занятті не змінюють, статус змінюється окремим ендпоінтом.
+**`LessonUpdate`**: `starts_at`, `duration_minutes`, `price`, `topic`, `homework`, `notes`, `meeting_url` — all optional. `student_id` and `status` are **not accepted** here (`422`): a lesson's student is not changed, and the status is changed with a separate endpoint.
 
-**`LessonStatusUpdate`**: `{"status": "planned" | "done" | "cancelled" | "missed"}`. Дозволений перехід з будь-якого статусу в будь-який (включно з виправленням помилкового `done`); баланс перераховується автоматично, бо не зберігається.
+**`LessonStatusUpdate`**: `{"status": "planned" | "done" | "cancelled" | "missed"}`. Any status may follow any other (including fixing a mistaken `done`); the balance is recalculated automatically because it is not stored.
 
-| Метод і шлях | Запит | Відповідь | Помилки |
+| Method and path | Request | Response | Errors |
 | --- | --- | --- | --- |
-| `GET /api/lessons` | query, усі необов'язкові: `from` datetime (включно), `to` datetime (не включно) — фільтр за `starts_at`; `student_id` uuid; `status` одне зі значень статусу | `200` `Lesson[]`, сортування за `starts_at` зростанням | `401`, `422` (у т.ч. `from >= to`, час без offset) |
-| `POST /api/lessons` | `LessonCreate` | `201` `Lesson` | `401`, `409 student_archived`, `422` (у т.ч. `student_not_found`) |
+| `GET /api/lessons` | query, all optional: `from` datetime (inclusive), `to` datetime (exclusive) — filter by `starts_at`; `student_id` uuid; `status` one of the status values | `200` `Lesson[]`, sorted by `starts_at` ascending | `401`, `422` (including `from >= to`, a time without an offset) |
+| `POST /api/lessons` | `LessonCreate` | `201` `Lesson` | `401`, `409 student_archived`, `422` (including `student_not_found`) |
 | `GET /api/lessons/{id}` | — | `200` `Lesson` | `401`, `404`, `422` |
 | `PATCH /api/lessons/{id}` | `LessonUpdate` | `200` `Lesson` | `401`, `404`, `422` |
 | `PATCH /api/lessons/{id}/status` | `LessonStatusUpdate` | `200` `Lesson` | `401`, `404`, `422` |
-| `DELETE /api/lessons/{id}` | — | `204` без тіла; запис видаляється | `401`, `404`, `422` |
+| `DELETE /api/lessons/{id}` | — | `204` with no body; the record is deleted | `401`, `404`, `422` |
 
-`GET /api/lessons` з `student_id` чужого або неіснуючого учня повертає `200 []`.
+`GET /api/lessons` with the `student_id` of someone else's or a non-existent student returns `200 []`.
 
-### Оплати
+### Payments
 
-**`Payment`** (відповідь):
+**`Payment`** (response):
 
-| Поле | Тип |
+| Field | Type |
 | --- | --- |
 | `id` | string (uuid) |
 | `student_id` | string (uuid) |
 | `student_full_name` | string |
-| `amount` | integer (копійки, > 0) |
+| `amount` | integer (kopecks, > 0) |
 | `paid_at` | string (datetime) |
 | `method` | `"cash"` \| `"card"` \| `"transfer"` |
 | `comment` | string \| null |
 | `created_at` | string (datetime) |
 
-**`PaymentCreate`**: `student_id` uuid **обов'язкове**; `amount` integer `1..100000000` **обов'язкове**; `method` **обов'язкове**; `paid_at` datetime з offset, default — зараз; `comment` string ≤ 500 \| null. Оплату архівному учневі приймати **можна** (закриття боргу).
+**`PaymentCreate`**: `student_id` uuid **required**; `amount` integer `1..100000000` **required**; `method` **required**; `paid_at` datetime with offset, default — now; `comment` string ≤ 500 \| null. A payment for an archived student **is** accepted (closing a debt).
 
-**`PaymentUpdate`**: `amount`, `paid_at`, `method`, `comment` — необов'язкові. `student_id` не приймається (`422`).
+**`PaymentUpdate`**: `amount`, `paid_at`, `method`, `comment` — optional. `student_id` is not accepted (`422`).
 
-| Метод і шлях | Запит | Відповідь | Помилки |
+| Method and path | Request | Response | Errors |
 | --- | --- | --- | --- |
-| `GET /api/payments` | query, усі необов'язкові: `student_id` uuid; `from` datetime (включно), `to` datetime (не включно) — фільтр за `paid_at` | `200` `Payment[]`, сортування за `paid_at` спаданням | `401`, `422` |
-| `POST /api/payments` | `PaymentCreate` | `201` `Payment` | `401`, `422` (у т.ч. `student_not_found`) |
+| `GET /api/payments` | query, all optional: `student_id` uuid; `from` datetime (inclusive), `to` datetime (exclusive) — filter by `paid_at` | `200` `Payment[]`, sorted by `paid_at` descending | `401`, `422` |
+| `POST /api/payments` | `PaymentCreate` | `201` `Payment` | `401`, `422` (including `student_not_found`) |
 | `GET /api/payments/{id}` | — | `200` `Payment` | `401`, `404`, `422` |
 | `PATCH /api/payments/{id}` | `PaymentUpdate` | `200` `Payment` | `401`, `404`, `422` |
-| `DELETE /api/payments/{id}` | — | `204` без тіла; запис видаляється | `401`, `404`, `422` |
+| `DELETE /api/payments/{id}` | — | `204` with no body; the record is deleted | `401`, `404`, `422` |
 
 ### `GET /api/dashboard`
 
-Усі межі періодів — у `Europe/Kyiv` на момент запиту.
+All period boundaries are in `Europe/Kyiv` at the time of the request.
 
-- Відповідь `200` — `Dashboard`:
+- Response `200` — `Dashboard`:
 
-| Поле | Тип | Зміст |
+| Field | Type | Contents |
 | --- | --- | --- |
-| `date` | string (`YYYY-MM-DD`) | Сьогоднішня дата в Києві |
-| `today` | `Lesson[]` | Заняття з `starts_at` у `[сьогодні 00:00, завтра 00:00)`, **усі статуси**, за часом |
-| `upcoming` | `Lesson[]` | Заняття зі статусом `planned` у `[завтра 00:00, сьогодні + 8 днів 00:00)` — наступні 7 днів, за часом |
-| `income_month` | integer (копійки) | Сума `payments.amount` з `paid_at` у поточному календарному місяці (касовий принцип: що реально отримано) |
-| `debt_total` | integer (копійки, ≥ 0) | Сума `−balance` по всіх учнях з `balance < 0`, включно з архівними |
-| `debtors` | `Debtor[]` | Учні з `balance < 0`, від найбільшого боргу |
-| `homework_to_review` | integer | ДЗ зі статусом `submitted` |
-| `quizzes_to_review` | integer | Тести зі статусом `needs_review` |
+| `date` | string (`YYYY-MM-DD`) | Today's date in Kyiv |
+| `today` | `Lesson[]` | Lessons with `starts_at` in `[today 00:00, tomorrow 00:00)`, **all statuses**, by time |
+| `upcoming` | `Lesson[]` | Lessons with status `planned` in `[tomorrow 00:00, today + 8 days 00:00)` — the next 7 days, by time |
+| `income_month` | integer (kopecks) | The sum of `payments.amount` with `paid_at` in the current calendar month (cash basis: what was actually received) |
+| `debt_total` | integer (kopecks, ≥ 0) | The sum of `−balance` over all students with `balance < 0`, including archived ones |
+| `debtors` | `Debtor[]` | Students with `balance < 0`, largest debt first |
+| `homework_to_review` | integer | Homework with status `submitted` |
+| `quizzes_to_review` | integer | Quizzes with status `needs_review` |
 
-`Debtor`: `student_id` string (uuid), `full_name` string, `balance` integer (від'ємний), `archived` boolean.
+`Debtor`: `student_id` string (uuid), `full_name` string, `balance` integer (negative), `archived` boolean.
 
-- Помилки: `401`, `403`.
+- Errors: `401`, `403`.
 
 ## `frontend/`
 
-Навіщо: односторінковий кабінет українською для трьох ролей.
+Purpose: a single-page cabinet in Ukrainian for three roles.
 
-- **Вхід.** Після входу `App.tsx` завантажує `GET /api/me` і обирає кабінет за роллю. Якщо `role` = `null`, показується `RoleChoicePage`: «Я репетитор» або код запрошення.
-- **Репетитор.** Меню з п'яти розділів: «Сьогодні», «Розклад», «Учні», «Оплати», «Навчання». На ноутбуці воно в бічній панелі, на телефоні — нижня панель. «Тариф» і «Вийти» лежать у профілі: внизу бічної панелі або в аватарці у верхньому рядку на телефоні. Сторінки:
-  - `/` «Сьогодні» — швидкі дії (нове заняття, оплата, ДЗ, учень), заняття на сьогодні з кнопкою «Проведено», «Потребує уваги» (невідмічені минулі заняття, ДЗ і тести на перевірку, боржники), гроші за місяць;
-  - `/lessons` «Розклад» — тижневий календар за замовчуванням (клік на вільну годину створює заняття, клік на заняття відкриває `LessonDialog` з кнопками «Заняття проведено», «Учень не прийшов», «Скасувати») і перемикач «Список» (найближчі / не відмічені / минулі, фільтри за учнем і статусом); вибір виду пам'ятається в `localStorage`;
-  - `/students` — список учнів, `/students/<id>` — картка учня з вкладками «Заняття», «ДЗ», «Тести», «Матеріали», «Доступ» (`StudentAccessPanel`) і одним блоком балансу з переходом в «Оплати»;
-  - `/payments` — баланси всіх учнів (боржники першими) і надходження за період («Цей місяць», «Минулий», «Усі»); `/payments/students/<id>` — гроші одного учня: баланс, сплачено, нараховано й хронологія оплат і проведених занять з балансом після кожної. Оплату змінюють і видаляють у її вікні;
-  - «Навчання» — три вкладки-сторінки зі спільним заголовком (`LearningHeader`): `/homework` (на перевірку, перевірені, задані), `/quizzes` (перевірити, призначені, мої тести), `/materials` (бібліотека; завантаження й «Згенерувати тест» — у вікнах); `/quizzes/<id>/edit` (редагування й публікація чернетки) і `/quiz-assignments/<id>` (відповіді; форма балів відкрита лише для неоцінених питань);
-  - `/billing` (тарифи, оплата через LiqPay, скасування; `/billing/demo-checkout` — демо-сторінка оплати). Банер «лише перегляд» показується над усіма сторінками, коли `read_only`.
-  - Спільні елементи: `PageHeader`, `SegmentedTabs`, `EmptyState` (`src/components/common/`); гроші всюди у форматі `formatMoney` («1 000,00 грн»); множина через `lib/plural.ts`.
-- **Учень і батьки** (`src/pages/portal/`): головна, `/schedule` (скасування для батьків), `/homework` (окремі ДЗ і ДЗ із занять), `/homework/<id>` і `/lessons/<id>/homework` (здача з фото — лише учень; `HomeworkAnswer`), `/quizzes` і `/quizzes/<id>` (проходження — лише учень), `/materials`, `/payments` (лише батьки).
-- **Звідки береться токен** знає лише `src/auth/session.ts` (`useSession()`): справжній Cognito через `react-oidc-context` або демо-вхід. `VITE_DEV_LOGIN=true` (є лише в `frontend/.env.development`, тобто тільки в `npm run dev`) показує три кнопки входу в seed-акаунти; backend приймає `Bearer dev:<sub>` лише з `DEV_AUTH=on`.
+- **Sign-in.** The sign-in page offers Google and email (Cognito managed login); `/privacy` (the privacy policy) is public. After sign-in, `App.tsx` loads `GET /api/me`; if the account has no name yet, `NamePage` asks for it; then it picks the cabinet by role. If `role` = `null`, `RoleChoicePage` is shown: "I'm a tutor" or an invite code.
+- **Tutor.** A menu of five sections: "Today", "Schedule", "Students", "Payments", "Learning". On a laptop it is in the sidebar, on a phone — a bottom bar. "Plan", "Reminders" and "Sign out" are in the profile: at the bottom of the sidebar or behind the avatar in the top bar on a phone. Pages:
+  - `/` "Today" — quick actions (new lesson, payment, homework, student), today's lessons with a "Done" button, "Needs attention" (unmarked past lessons, homework and quizzes to review, debtors), money for the month;
+  - `/lessons` "Schedule" — a weekly calendar by default (clicking a free hour creates a lesson, clicking a lesson opens `LessonDialog` with "Lesson held", "Student did not come", "Cancel" and the join link) and a "List" toggle (upcoming / unmarked / past, filters by student and status); the chosen view is remembered in `localStorage`;
+  - `/students` — the list of students, `/students/<id>` — the student's card with the tabs "Lessons", "Homework", "Quizzes", "Materials", "Access" (`StudentAccessPanel`) and one balance block linking to "Payments";
+  - `/payments` — the balances of all students (debtors first) and income for a period ("This month", "Last month", "All"); `/payments/students/<id>` — one student's money: balance, paid, charged and a timeline of payments and lessons held with the balance after each. A payment is edited and deleted in its dialog;
+  - "Learning" — three tab pages with a shared header (`LearningHeader`): `/homework` (to review, reviewed, assigned), `/quizzes` (to grade, assigned, my quizzes), `/materials` (the library; upload and "Generate a quiz" — in dialogs); `/quizzes/<id>/edit` (editing and publishing a draft) and `/quiz-assignments/<id>` (answers; the points form is open only for ungraded questions);
+  - `/billing` (plans, payment via LiqPay, promo codes, cancellation; `/billing/demo-checkout` — a demo payment page). The "read-only" banner is shown above all pages when `read_only`.
+  - Shared elements: `PageHeader`, `SegmentedTabs`, `EmptyState` (`src/components/common/`); money everywhere in the `formatMoney` format ("1 000,00 грн"); plurals via `lib/plural.ts`.
+- **Student and parent** (`src/pages/portal/`): home (a to-do list of homework and quizzes, upcoming lessons with a "Join" button, quiz results), `/schedule` (list or weekly calendar; cancellation for parents), `/homework` (tabs "To hand in", "Handed in", "Reviewed"), `/homework/<id>` and `/lessons/<id>/homework` (hand-in with photos — student only; `HomeworkAnswer`), `/quizzes` (tabs "To take", "Results") and `/quizzes/<id>` (taking a quiz — student only), `/materials` (cards with preview), `/payments` (parents only: balance breakdown and history).
+- **Where the token comes from** is known only to `src/auth/session.ts` (`useSession()`): real Cognito via `react-oidc-context` or the demo sign-in. `VITE_DEV_LOGIN=true` (only in `frontend/.env.development`, i.e. only in `npm run dev`) shows three sign-in buttons for the seed accounts; the backend accepts `Bearer dev:<sub>` only with `DEV_AUTH=on`.
 
-Чого ще немає: налаштувань профілю (ім'я, `cancel_notice_hours`) і редагування окремого ДЗ після створення (лише видалення).
+Not there yet: profile settings beyond the name (`cancel_notice_hours`) and editing standalone homework after creation (deletion only).
 
-### Версії
+### Versions
 
-Node 20.15.1. React 18.3.1, react-dom 18.3.1, Vite 5.4.0, @vitejs/plugin-react 4.3.1, TypeScript 5.5.4, Tailwind CSS 3.4.7, postcss 8.4.40, autoprefixer 10.4.19, react-oidc-context 3.3.1, oidc-client-ts 3.5.0. shadcn/ui — локальні файли компонентів у `src/components/ui/` плюс class-variance-authority 0.7.0, clsx 2.1.1, tailwind-merge 2.4.0, lucide-react 0.424.0; пакети Radix, які тягне конкретний компонент, фіксуються точною версією в момент додавання. Лінт: ESLint 9.10.0 (+ typescript-eslint 8.6.0, eslint-plugin-react-hooks 5.1.0), Prettier 3.3.3. Усі версії в `package.json` — точні, без `^`; `package-lock.json` комітиться.
+Node 20.15.1. React 18.3.1, react-dom 18.3.1, Vite 5.4.0, @vitejs/plugin-react 4.3.1, TypeScript 5.5.4, Tailwind CSS 3.4.7, postcss 8.4.40, autoprefixer 10.4.19, react-oidc-context 3.3.1, oidc-client-ts 3.5.0. shadcn/ui — local component files in `src/components/ui/` plus class-variance-authority 0.7.0, clsx 2.1.1, tailwind-merge 2.4.0, lucide-react 0.424.0; the Radix packages a particular component pulls in are pinned to an exact version when added. Lint: ESLint 9.10.0 (+ typescript-eslint 8.6.0, eslint-plugin-react-hooks 5.1.0), Prettier 3.3.3. All versions in `package.json` are exact, without `^`; `package-lock.json` is committed.
 
-### Структура
+### Structure
 
-| Шлях | Навіщо |
+| Path | Purpose |
 | --- | --- |
-| `package.json` | Залежності й скрипти: `dev`, `build`, `lint` (`eslint .`), `format:check` (`prettier --check .`). |
-| `vite.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `eslint.config.js`, `prettier.config.js`, `components.json` | Конфігурація інструментів. |
-| `index.html` | Точка монтування, `lang="uk"`. |
-| `src/main.tsx` | Корінь: `AuthProvider` з `react-oidc-context`. |
-| `src/App.tsx` | Вибір сторінки за шляхом: `/` «Сьогодні», `/lessons` «Розклад», `/students`, `/payments`, `/homework`, `/quizzes`, `/materials` та інші вище. Неавторизованому — сторінка входу. |
-| `src/auth/oidc.ts` | Конфіг OIDC: authority, client_id, `redirect_uri = location.origin + "/"`, scopes, logout через домен Cognito. |
-| `src/api/client.ts` | Єдиний `fetch`-обгортка: база `VITE_API_URL`, `Authorization: Bearer`, розбір помилок. На `401` — повторний вхід. |
-| `src/api/{me,students,lessons,payments,dashboard}.ts` | Типізовані клієнти ендпоінтів; TS-типи дзеркалять схеми з розділу «Backend API». |
-| `src/pages/` | Сторінки: дашборд, список учнів, картка учня (заняття, оплати, баланс), розклад, оплати. |
-| `src/components/` | Форми й списки сторінок; `ui/` — shadcn/ui. |
-| `src/lib/money.ts` | Копійки ↔ рядок `1 234,50 ₴` (`Intl.NumberFormat("uk-UA", { currency: "UAH" })`). Введення гривень → копійки без float-помилок. |
-| `src/lib/datetime.ts` | Відображення й введення часу в `Europe/Kyiv`; на бекенд іде ISO 8601 з offset. |
+| `package.json` | Dependencies and scripts: `dev`, `build`, `lint` (`eslint .`), `format:check` (`prettier --check .`). |
+| `vite.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `eslint.config.js`, `prettier.config.js`, `components.json` | Tool configuration. |
+| `index.html` | The mount point, `lang="uk"`. |
+| `src/main.tsx` | The root: `AuthProvider` from `react-oidc-context`. |
+| `src/App.tsx` | Picks the page by path: `/` "Today", `/lessons` "Schedule", `/students`, `/payments`, `/homework`, `/quizzes`, `/materials` and the others above. Unauthenticated users get the sign-in page; `/privacy` is public. |
+| `src/auth/oidc.ts` | The OIDC config: authority, client_id, `redirect_uri = location.origin + "/"`, scopes, logout via the Cognito domain. |
+| `src/api/client.ts` | The single `fetch` wrapper: base `VITE_API_URL`, `Authorization: Bearer`, error parsing. On `401` — sign in again. |
+| `src/api/{me,students,lessons,payments,dashboard}.ts` | Typed endpoint clients; the TS types mirror the schemas from the "Backend API" section. |
+| `src/pages/` | Pages: dashboard, student list, student card (lessons, payments, balance), schedule, payments; `portal/` — the student and parent pages. |
+| `src/components/` | Page forms and lists; `ui/` — shadcn/ui. |
+| `src/lib/money.ts` | Kopecks ↔ the string `1 234,50 ₴` (`Intl.NumberFormat("uk-UA", { currency: "UAH" })`). Hryvnia input → kopecks without float errors. |
+| `src/lib/datetime.ts` | Displaying and entering time in `Europe/Kyiv`; the backend receives ISO 8601 with an offset. |
 
-### Змінні збірки
+### Build variables
 
-| Змінна | Звідки |
+| Variable | Source |
 | --- | --- |
-| `VITE_API_URL` | Локально `http://localhost:8000`; у хмарі — Lambda function URL (output `api_url`) |
-| `VITE_COGNITO_AUTHORITY` | output `cognito_authority` |
+| `VITE_API_URL` | Locally `http://localhost:8000`; on Render `https://mindleaf-api.onrender.com`; in the target AWS setup — the Lambda function URL (output `api_url`) |
+| `VITE_COGNITO_AUTHORITY` | output `cognito_authority` (on Render — set by hand, see `infra/README.md`) |
 | `VITE_COGNITO_CLIENT_ID` | output `cognito_client_id` |
-| `VITE_COGNITO_DOMAIN` | output `cognito_domain` (для logout) |
+| `VITE_COGNITO_DOMAIN` | output `cognito_domain` (for logout) |
+| `VITE_GOOGLE_LOGIN` | `true` shows the "Sign in with Google" button |
 
-Фронтенд звертається до API напряму на function URL (cross-origin), тому бекенд відкриває CORS лише для домену сайту. Локально фронтенд запускається `npm run dev` на порту 5173 поза compose.
+The frontend calls the API directly (cross-origin), so the backend opens CORS only for the site's domain. Locally the frontend runs with `npm run dev` on port 5173 outside compose.
 
 ## `docker-compose.yml`
 
-Навіщо: повний локальний runtime. `docker compose up` з кореня — єдина команда запуску; нічого, крім Docker, не потрібно.
+Purpose: the full local runtime. `docker compose up` from the root is the only command to start; nothing but Docker is needed.
 
-`name: tutor-cabinet`. Два сервіси, іменовані томи `pgdata` (база) і `uploads` (фото ДЗ, змонтований у backend як `/data/uploads`).
+`name: tutor-cabinet`. Two services, named volumes `pgdata` (the database) and `uploads` (homework photos, mounted into the backend as `/data/uploads`).
 
-| Сервіс | Образ / build | Порт | Залежить від | Готовність (healthcheck) |
+| Service | Image / build | Port | Depends on | Readiness (healthcheck) |
 | --- | --- | --- | --- | --- |
-| `postgres` | `postgres:16`; `POSTGRES_USER=tutor`, `POSTGRES_PASSWORD=tutor`, `POSTGRES_DB=tutor_cabinet`; том `pgdata:/var/lib/postgresql/data` | `5432` лише всередині мережі compose (на хост не публікується) | — | `pg_isready -U tutor -d tutor_cabinet`; `interval: 5s`, `timeout: 3s`, `retries: 12` |
-| `backend` | `build: ./backend` (`Dockerfile`, `python:3.12-slim`); змінні з таблиці «Змінні середовища backend»; `COGNITO_AUTHORITY`/`COGNITO_CLIENT_ID` беруться з оточення shell або `.env`, а до створення пулу мають заглушки (тоді всі захищені ендпоінти відповідають `401`) | `8000:8000` | `postgres` з `condition: service_healthy` | `python -c` з `urllib.request.urlopen("http://127.0.0.1:8000/api/health")`; `interval: 5s`, `timeout: 3s`, `retries: 12`, `start_period: 10s`. Стає healthy лише після `alembic upgrade head` і старту Uvicorn. |
+| `postgres` | `postgres:16`; `POSTGRES_USER=tutor`, `POSTGRES_PASSWORD=tutor`, `POSTGRES_DB=tutor_cabinet`; volume `pgdata:/var/lib/postgresql/data` | `5432` only inside the compose network (not published to the host) | — | `pg_isready -U tutor -d tutor_cabinet`; `interval: 5s`, `timeout: 3s`, `retries: 12` |
+| `backend` | `build: ./backend` (`Dockerfile`, `python:3.12-slim`); variables from the "Backend environment variables" table; `COGNITO_AUTHORITY`/`COGNITO_CLIENT_ID` come from the shell environment or `.env`, with placeholders until a pool exists (then all protected endpoints answer `401`) | `8000:8000` | `postgres` with `condition: service_healthy` | `python -c` with `urllib.request.urlopen("http://127.0.0.1:8000/api/health")`; `interval: 5s`, `timeout: 3s`, `retries: 12`, `start_period: 10s`. Becomes healthy only after `alembic upgrade head` and Uvicorn's start. |
 
-Backend з'єднується з базою за хостом `postgres`. Тестова база `tutor_cabinet_test` живе в тому самому контейнері; її створює `tests/conftest.py`. Оцінювач локально — не сервіс, а разовий `make grade` (контейнер з образу backend, звертається до `http://backend:8000`).
+The backend connects to the database at the host `postgres`. The test database `tutor_cabinet_test` lives in the same container; `tests/conftest.py` creates it. Locally the grader is not a service but a one-off `make grade` (a container from the backend image calling `http://backend:8000`).
 
 ## `infra/`
 
-> **Current state (EN).** The prototype is deployed on Render: `infra/` contains [`render.yaml`](infra/render.yaml) (database, API and site as one Blueprint) and a [step-by-step guide](infra/README.md) for Cognito, Google, Telegram and LiqPay. Everything below in this section is the **target production setup for AWS with Terraform; it is not implemented yet** — there are no `*.tf` files in the repository.
+> **Current state.** The prototype is deployed on Render: `infra/` contains [`render.yaml`](infra/render.yaml) (database, API and site as one Blueprint) and a [step-by-step guide](infra/README.md) for Cognito, Google, Telegram and LiqPay. Everything below in this section is the **target production setup for AWS with Terraform; it is not implemented yet**: there are no `*.tf` files in the repository.
 
-Навіщо: уся хмарна інфраструктура як код. Terraform, **одна root module**, без підмодулів. State і запуски — у HCP Terraform workspace в режимі **remote execution**; змінні й AWS-доступ задаються у workspace. `terraform apply` виконується тільки в HCP Terraform після мержу — у Makefile його немає. Поки тільки опис файлів.
+Purpose: all cloud infrastructure as code. Terraform, **one root module**, no submodules. State and runs live in an HCP Terraform workspace in **remote execution** mode; variables and AWS access are set in the workspace. `terraform apply` runs only in HCP Terraform after a merge; it is not in the Makefile. For now, only the file descriptions exist.
 
-| Файл | Що описує |
+| File | What it describes |
 | --- | --- |
-| `versions.tf` | `required_version >= 1.10`; блок `cloud` (організація команди, workspace `tutor-cabinet`); провайдер `hashicorp/aws ~> 6.0`, регіон `var.region`; `default_tags { PROJECT_NAME = var.project_name, ManagedBy = "terraform" }` — тег на всіх ресурсах. |
-| `variables.tf` | `liqpay_public_key`, `liqpay_private_key` (sensitive), `liqpay_sandbox`; `region` (default `us-east-1`), `project_name` (default `tutor-cabinet`), `domain_prefix` (Cognito), `google_client_id`, `google_client_secret` (sensitive), `db_password` (sensitive), `github_repository` (`owner/name`), `backend_image_tag` (тег першого образу; далі образ оновлює деплой). Значень у репозиторії немає — вони у змінних workspace. |
-| `network.tf` | Власний VPC; дві приватні підмережі у двох AZ (вимога DB subnet group); без Internet Gateway, без NAT, без VPC endpoints — API Lambda не викликає AWS API (presigned URL для S3 підписуються локально, а Bedrock кличе інша Lambda поза VPC). Security groups: `lambda` (egress лише 5432 до `db`), `db` (ingress 5432 лише від `lambda`). |
-| `database.tf` | DB subnet group; Aurora PostgreSQL 16 cluster, Serverless v2 `min_capacity = 0`, `max_capacity = 1`, auto-pause; один інстанс `db.serverless`; шифрування сховища; бекапи 7 днів; фінальний snapshot при видаленні; master-пароль з `var.db_password`. |
-| `api.tf` | ECR-репозиторій бекенду (теги `IMMUTABLE`, бо тег = commit SHA); IAM-роль Lambda з `AWSLambdaVPCAccessExecutionRole`; CloudWatch log group (14 днів); Lambda `package_type = "Image"`, `linux/amd64` (x86_64), 512 MB, timeout 30 s, `vpc_config` з підмережами й SG `lambda`; env `DATABASE_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `CORS_ORIGINS`, `COGNITO_JWKS` (початково `{"keys":[]}`), `STORAGE_BACKEND=s3`, `UPLOADS_BUCKET`, `GRADER_TOKEN`, `AI_GRADER`, `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY`, `LIQPAY_SANDBOX`, `SITE_URL`, `PUBLIC_API_URL` (function URL — з нього складається `server_url` для LiqPay); роль має `s3:PutObject`/`s3:GetObject` на `homework/*` і `materials/*` бакета (без цього presigned URL підписуються, але S3 їх відхиляє); `lifecycle.ignore_changes` на `image_uri` і `COGNITO_JWKS`, бо їх оновлює деплой; function URL з `authorization_type = "NONE"` (автентифікацію робить застосунок) і **без** блоку `cors` (CORS робить FastAPI — один механізм локально і в хмарі). |
-| `uploads.tf` | Приватний S3-бакет фото ДЗ і матеріалів (`homework/*`, `materials/*`): block public access, шифрування SSE-S3, CORS лише для домену сайту (`POST` для завантаження, `GET` для перегляду), без версіонування. Обмеження типу й розміру задає presigned POST (`Content-Type`, `content-length-range` до 10 МБ). |
-| `grader.tf` | Lambda оцінювача з того самого ECR-образу (`image_config.command = ["app.grader.lambda_handler.handler"]`), **без `vpc_config`** (має інтернет без NAT), 256 MB, timeout 120 s, без reserved concurrency (на нових акаунтах загальний ліміт буває 10 і резерв не застосується; від подвійного оцінювання захищає оренда); env `API_URL` (function URL API), `GRADER_TOKEN`, `GRADER=bedrock`, `GRADER_MODEL=anthropic.claude-haiku-5-5`. Роль: логи + `bedrock-mantle:CreateInference` лише на цю модель; доступу до S3 не треба — матеріали воркер качає за підписаним посиланням від API. Цей самий воркер генерує й тести з матеріалів. EventBridge Scheduler раз на хвилину (у межах безкоштовного ліміту). `aws_budgets_budget` на $1 за Bedrock і AWS Marketplace з e-mail-алертом — перші два бюджети безкоштовні. `GRADER_TOKEN` — `random_password` у state HCP. |
-| `site.tf` | Приватний S3-бакет (block public access, без website hosting); CloudFront distribution з Origin Access Control; bucket policy дозволяє `s3:GetObject` лише цій distribution; `default_root_object = "index.html"`; 403/404 → `/index.html` з кодом 200 для SPA-маршрутів; `PriceClass_100`; сертифікат CloudFront за замовчуванням. |
-| `auth.tf` | Cognito user pool (email як username, автоверифікація email, self sign-up); Google identity provider; публічний web-клієнт (code flow, PKCE, без секрету, scopes `openid email profile`, callback/logout — домен CloudFront і `http://localhost:5173/`); домен managed login версії 2 і branding. |
-| `ci.tf` | GitHub OIDC provider (`token.actions.githubusercontent.com`); IAM-роль деплою з довірою лише для `repo:${var.github_repository}:ref:refs/heads/main`. Права: push у ECR-репозиторій бекенду; `lambda:GetFunctionConfiguration`, `UpdateFunctionConfiguration`, `UpdateFunctionCode`, `InvokeFunction` на функцію бекенду; `s3:ListBucket`/`PutObject`/`DeleteObject` на бакет сайту; `cloudfront:CreateInvalidation` на distribution. Довготривалих ключів немає. |
-| `outputs.tf` | `site_url`, `api_url`, `cognito_authority`, `cognito_client_id`, `cognito_domain`, `ecr_repository_url`, `lambda_function_name`, `grader_function_name`, `uploads_bucket`, `frontend_bucket`, `cloudfront_distribution_id`, `deploy_role_arn`. Імена збігаються зі змінними Makefile. Деплой оновлює код обох Lambda тим самим образом. |
+| `versions.tf` | `required_version >= 1.10`; a `cloud` block (the team's organization, workspace `tutor-cabinet`); provider `hashicorp/aws ~> 6.0`, region `var.region`; `default_tags { PROJECT_NAME = var.project_name, ManagedBy = "terraform" }` — a tag on every resource. |
+| `variables.tf` | `liqpay_public_key`, `liqpay_private_key` (sensitive), `liqpay_sandbox`; `region` (default `us-east-1`), `project_name` (default `tutor-cabinet`), `domain_prefix` (Cognito), `google_client_id`, `google_client_secret` (sensitive), `db_password` (sensitive), `github_repository` (`owner/name`), `backend_image_tag` (the tag of the first image; after that the deployment updates the image). There are no values in the repository; they are workspace variables. |
+| `network.tf` | Its own VPC; two private subnets in two AZs (required by the DB subnet group); no Internet Gateway, no NAT, no VPC endpoints — the API Lambda does not call AWS APIs (presigned S3 URLs are signed locally, and Bedrock is called by another Lambda outside the VPC). Security groups: `lambda` (egress only 5432 to `db`), `db` (ingress 5432 only from `lambda`). |
+| `database.tf` | A DB subnet group; an Aurora PostgreSQL 16 cluster, Serverless v2 `min_capacity = 0`, `max_capacity = 1`, auto-pause; one `db.serverless` instance; storage encryption; 7-day backups; a final snapshot on deletion; the master password from `var.db_password`. |
+| `api.tf` | The backend ECR repository (`IMMUTABLE` tags, because tag = commit SHA); the Lambda IAM role with `AWSLambdaVPCAccessExecutionRole`; a CloudWatch log group (14 days); Lambda `package_type = "Image"`, `linux/amd64` (x86_64), 512 MB, timeout 30 s, `vpc_config` with the subnets and the `lambda` SG; env `DATABASE_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `CORS_ORIGINS`, `COGNITO_JWKS` (initially `{"keys":[]}`), `STORAGE_BACKEND=s3`, `UPLOADS_BUCKET`, `GRADER_TOKEN`, `AI_GRADER`, `LIQPAY_PUBLIC_KEY`, `LIQPAY_PRIVATE_KEY`, `LIQPAY_SANDBOX`, `SITE_URL`, `PUBLIC_API_URL` (the function URL — LiqPay's `server_url` is built from it); the role has `s3:PutObject`/`s3:GetObject` on the bucket's `homework/*` and `materials/*` (without it presigned URLs are signed, but S3 rejects them); `lifecycle.ignore_changes` on `image_uri` and `COGNITO_JWKS`, because the deployment updates them; a function URL with `authorization_type = "NONE"` (the application does authentication) and **without** a `cors` block (FastAPI does CORS — one mechanism locally and in the cloud). |
+| `uploads.tf` | A private S3 bucket for homework photos and materials (`homework/*`, `materials/*`): block public access, SSE-S3 encryption, CORS only for the site's domain (`POST` for upload, `GET` for viewing), no versioning. The type and size limits are set by the presigned POST (`Content-Type`, `content-length-range` up to 10 MB). |
+| `grader.tf` | The grader Lambda from the same ECR image (`image_config.command = ["app.grader.lambda_handler.handler"]`), **without `vpc_config`** (it has internet without NAT), 256 MB, timeout 120 s, no reserved concurrency (on new accounts the overall limit can be 10 and a reservation would not apply; the lease protects against double grading); env `API_URL` (the API function URL), `GRADER_TOKEN`, `GRADER=bedrock`, `GRADER_MODEL=anthropic.claude-haiku-5-5`. Role: logs + `bedrock-mantle:CreateInference` only on this model; no S3 access is needed — the worker downloads materials via a signed link from the API. The same worker also generates quizzes from materials. EventBridge Scheduler once a minute (within the free tier). An `aws_budgets_budget` of $1 for Bedrock and AWS Marketplace with an e-mail alert — the first two budgets are free. `GRADER_TOKEN` is a `random_password` in the HCP state. |
+| `site.tf` | A private S3 bucket (block public access, no website hosting); a CloudFront distribution with Origin Access Control; the bucket policy allows `s3:GetObject` only for this distribution; `default_root_object = "index.html"`; 403/404 → `/index.html` with code 200 for SPA routes; `PriceClass_100`; the default CloudFront certificate. |
+| `auth.tf` | A Cognito user pool (email as username, email auto-verification, self sign-up); a Google identity provider; a public web client (code flow, PKCE, no secret, scopes `openid email profile`, callback/logout — the CloudFront domain and `http://localhost:5173/`); a managed login version 2 domain and branding. |
+| `ci.tf` | A GitHub OIDC provider (`token.actions.githubusercontent.com`); a deploy IAM role trusted only for `repo:${var.github_repository}:ref:refs/heads/main`. Permissions: push to the backend ECR repository; `lambda:GetFunctionConfiguration`, `UpdateFunctionConfiguration`, `UpdateFunctionCode`, `InvokeFunction` on the backend function; `s3:ListBucket`/`PutObject`/`DeleteObject` on the site bucket; `cloudfront:CreateInvalidation` on the distribution. No long-lived keys. |
+| `outputs.tf` | `site_url`, `api_url`, `cognito_authority`, `cognito_client_id`, `cognito_domain`, `ecr_repository_url`, `lambda_function_name`, `grader_function_name`, `uploads_bucket`, `frontend_bucket`, `cloudfront_distribution_id`, `deploy_role_arn`. The names match the Makefile variables. The deployment updates the code of both Lambdas with the same image. |
 
-### Цільова схема в AWS (us-east-1)
+### Target architecture in AWS (us-east-1)
 
 ```text
-браузер ──HTTPS──▶ CloudFront (OAC) ──▶ S3 (приватний): статичний фронтенд
+browser ──HTTPS──▶ CloudFront (OAC) ──▶ S3 (private): static frontend
    │
-   ├──OIDC code+PKCE──▶ Cognito managed login (email+пароль, Google)
+   ├──OIDC code+PKCE──▶ Cognito managed login (email+password, Google)
    │
-   ├──HTTPS + Bearer──▶ Lambda function URL ──▶ API Lambda (FastAPI + Mangum, образ з ECR)
-   │                          ▲                     │  у VPC, приватні підмережі, без NAT
+   ├──HTTPS + Bearer──▶ Lambda function URL ──▶ API Lambda (FastAPI + Mangum, image from ECR)
+   │                          ▲                     │  in the VPC, private subnets, no NAT
    │                          │                     └──5432──▶ Aurora Serverless v2 PostgreSQL (0–1 ACU)
    │                          │ X-Grader-Token
    │                          │
-   │             Lambda оцінювача (той самий образ, поза VPC) ◀── EventBridge Scheduler, раз на хвилину
+   │             Grader Lambda (same image, outside the VPC) ◀── EventBridge Scheduler, once a minute
    │                          └──HTTPS──▶ Amazon Bedrock: Claude Haiku 5.5
    │
-   └──presigned POST / GET──▶ S3 (приватний): фото ДЗ
+   └──presigned POST / GET──▶ S3 (private): homework photos
 ```
 
-Чому оцінювач поза VPC: API Lambda без NAT і без VPC endpoints не може дістатися до Bedrock, а NAT (~$33/міс) чи interface endpoint (~$7/міс за AZ) мають погодинну оплату. Lambda поза VPC має інтернет безкоштовно; бази вона не бачить і працює лише через `/api/internal/grading` (ADR 0008).
+Why the grader is outside the VPC: the API Lambda without NAT or VPC endpoints cannot reach Bedrock, and NAT (~$33/month) or an interface endpoint (~$7/month per AZ) are billed hourly. A Lambda outside the VPC has internet for free; it cannot see the database and works only through `/api/internal/grading` (ADR 0008).
 
-Наслідок `min_capacity = 0`: після простою перший запит чекає, поки Aurora прокинеться (порядку 15 секунд). Фронтенд показує стан завантаження і не вважає це помилкою; timeout Lambda 30 s.
+A consequence of `min_capacity = 0`: after idle time the first request waits for Aurora to wake up (around 15 seconds). The frontend shows a loading state and does not treat it as an error; the Lambda timeout is 30 s.
 
 ## Makefile
 
-Навіщо: єдиний рецепт деплою й локальних перевірок. `terraform apply` тут немає.
+Purpose: the single recipe for deployment and local checks. There is no `terraform apply` here.
 
-**Зараз реалізовано** лише локальні цілі; усі вони виконуються в образі backend (`docker compose run --rm --build backend ...`), тож локально потрібен тільки Docker:
+**Implemented now** are only the local targets; all of them run in the backend image (`docker compose run --rm --build backend ...`), so locally only Docker is needed:
 
-| Ціль | Що робить |
+| Target | What it does |
 | --- | --- |
-| `lint` | `lint-frontend`, потім `ruff check .` і `ruff format --check .` |
-| `test` | `pytest` (compose підніме й дочекається `postgres`) |
+| `lint` | `lint-frontend`, then `ruff check .` and `ruff format --check .` |
+| `test` | `pytest` (compose starts `postgres` and waits for it) |
 | `seed` | `python -m app.seed --tutor-sub "$(TUTOR_SUB)"`, `TUTOR_SUB` default `local-dev` |
-| `migrate-local` | `alembic upgrade head` на локальній базі (backend і так мігрує при старті; ціль — для нової ревізії, поки він працює) |
-| `grade` | Один прохід ШІ-воркера проти запущеного `docker compose up`: оцінювання, потім генерація тестів. Контейнер працює в мережі контейнера backend (`--network container:...`), тож посилання на матеріали `http://localhost:8000/api/files/...` працюють. `GRADER=fake` (default, безкоштовно) або `GRADER=bedrock` (Claude Haiku 5.5 з локальними AWS-креденшелами: монтує `~/.aws`, передає `AWS_PROFILE`; частки цента за тест чи генерацію). |
-| `lint-frontend` | `npm ci`, `npm run lint`, `npm run format:check` у `frontend/`; `lint` залежить від неї. |
+| `migrate-local` | `alembic upgrade head` on the local database (the backend migrates on start anyway; this target is for a new revision while it is running) |
+| `grade` | One pass of the AI worker against a running `docker compose up`: grading, then quiz generation. The container runs in the backend container's network (`--network container:...`), so material links `http://localhost:8000/api/files/...` work. `GRADER=fake` (default, free) or `GRADER=bedrock` (Claude Haiku 5.5 with local AWS credentials: mounts `~/.aws`, passes `AWS_PROFILE`; fractions of a cent per quiz or generation). |
+| `lint-frontend` | `npm ci`, `npm run lint`, `npm run format:check` in `frontend/`; `lint` depends on it. |
 
-Цілі деплою нижче з'являться разом з `infra/`; тоді CI викликатиме ці ж цілі й не дублюватиме їхніх команд.
+The deployment targets below will appear together with the Terraform part of `infra/`; CI will then call the same targets and will not duplicate their commands.
 
-Змінні деплою за замовчуванням читаються з `terraform -chdir=infra output -raw <name>` (локально, після `terraform login`); у CI вони задаються явно з repository variables GitHub. AWS-доступ дає викликач (локальний профіль або OIDC-роль у CI) — у Makefile ключів немає.
+Deployment variables are read by default from `terraform -chdir=infra output -raw <name>` (locally, after `terraform login`); in CI they are set explicitly from GitHub repository variables. AWS access comes from the caller (a local profile or the OIDC role in CI) — the Makefile has no keys.
 
-| Ціль | Потрібні змінні | Що робить |
+| Target | Required variables | What it does |
 | --- | --- | --- |
-| `deploy-backend` | `ECR_REPOSITORY_URL`, `LAMBDA_FUNCTION_NAME`, `GRADER_FUNCTION_NAME`, `COGNITO_AUTHORITY`; `IMAGE_TAG` (default — повний `git rev-parse HEAD`), `AWS_REGION` (default `us-east-1`) | Відмовляється при брудному робочому дереві. Логін у ECR. Якщо образу з тегом `IMAGE_TAG` ще нема — `docker buildx build -f backend/Dockerfile.lambda --platform linux/amd64 --provenance=false` і push. Завантажує `${COGNITO_AUTHORITY}/.well-known/jwks.json`, записує його в `COGNITO_JWKS`, зберігаючи решту змінних функції; чекає `function-updated`. Оновлює код обох функцій (API й оцінювача) на `<repo>:<IMAGE_TAG>`; чекає `function-updated`. |
-| `migrate` | `LAMBDA_FUNCTION_NAME`, `AWS_REGION` | `aws lambda invoke` з payload `{"action": "migrate"}`; падає, якщо у відповіді є `FunctionError` або немає `"migrated": true`. |
-| `deploy-frontend` | `FRONTEND_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `API_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN` | `npm ci` і `npm run build` з `VITE_*`; `aws s3 sync frontend/dist/` з `--delete` (хешовані assets — `max-age=31536000, immutable`, `index.html` — `no-cache`); інвалідація CloudFront `/*`. |
-| `infra-plan` | `terraform login` у HCP | `terraform -chdir=infra fmt -check`, `init`, `validate`, `plan` (план виконується віддалено в HCP Terraform). |
+| `deploy-backend` | `ECR_REPOSITORY_URL`, `LAMBDA_FUNCTION_NAME`, `GRADER_FUNCTION_NAME`, `COGNITO_AUTHORITY`; `IMAGE_TAG` (default — the full `git rev-parse HEAD`), `AWS_REGION` (default `us-east-1`) | Refuses with a dirty working tree. Logs in to ECR. If there is no image tagged `IMAGE_TAG` yet — `docker buildx build -f backend/Dockerfile.lambda --platform linux/amd64 --provenance=false` and push. Downloads `${COGNITO_AUTHORITY}/.well-known/jwks.json` and writes it into `COGNITO_JWKS`, keeping the function's other variables; waits for `function-updated`. Updates the code of both functions (API and grader) to `<repo>:<IMAGE_TAG>`; waits for `function-updated`. |
+| `migrate` | `LAMBDA_FUNCTION_NAME`, `AWS_REGION` | `aws lambda invoke` with the payload `{"action": "migrate"}`; fails if the response has `FunctionError` or lacks `"migrated": true`. |
+| `deploy-frontend` | `FRONTEND_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `API_URL`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN` | `npm ci` and `npm run build` with `VITE_*`; `aws s3 sync frontend/dist/` with `--delete` (hashed assets — `max-age=31536000, immutable`, `index.html` — `no-cache`); CloudFront invalidation `/*`. |
+| `infra-plan` | `terraform login` to HCP | `terraform -chdir=infra fmt -check`, `init`, `validate`, `plan` (the plan runs remotely in HCP Terraform). |
 
-Порядок деплою: `deploy-backend` → `migrate` → `deploy-frontend`. Міграцію запускає вже новий образ, бо ревізії Alembic лежать у ньому. Тому кожна міграція має бути сумісною з попередньою версією коду (спершу додаємо, прибираємо — в наступному релізі).
+Deployment order: `deploy-backend` → `migrate` → `deploy-frontend`. The migration is run by the new image, because the Alembic revisions are inside it. So every migration must be compatible with the previous version of the code (add first, remove in the next release).
 
-## CI і деплой (`.github/workflows/`)
+## CI and deployment (`.github/workflows/`)
 
-**Зараз є** `backend.yml`: на кожен `push` у будь-яку гілку — `actions/setup-python@v5` (3.12), `pip install ".[dev]"`, `ruff check .`, `ruff format --check .`, `pytest` у `backend/` з service container `postgres:16` і `TEST_DATABASE_URL`. AWS-доступу не має.
+**What exists now:** `backend.yml`: on every `push` to any branch — `actions/setup-python@v5` (3.12), `pip install ".[dev]"`, `ruff check .`, `ruff format --check .`, `pytest` in `backend/` with a `postgres:16` service container and `TEST_DATABASE_URL`. It has no AWS access. `reminders.yml` is a backup scheduler for Telegram reminders (calls `/api/internal/reminders/run` with `CRON_TOKEN`). Deployment to Render happens automatically on push to `main` (Render's own auto-deploy).
 
-Цільовий стан після появи frontend/ та infra/ (`backend.yml` тоді поглинається `ci.yml`):
+Target state for AWS (`backend.yml` is then absorbed by `ci.yml`):
 
-| Файл | Тригери | Що робить |
+| File | Triggers | What it does |
 | --- | --- | --- |
-| `ci.yml` | `pull_request`; `push` у будь-яку гілку, крім `main`; `workflow_call` | Job `backend`: `actions/setup-python@v5` (3.12), `pip install "./backend[dev]"`, `ruff check backend`, `ruff format --check backend`, `pytest` у `backend/` з service container `postgres:16` і `TEST_DATABASE_URL`. Job `frontend`: `actions/setup-node@v4` (20.15.1), `npm ci`, `npm run lint`, `npm run format:check` у `frontend/`. AWS-доступу не має. |
-| `deploy.yml` | `push` у `main` | Спершу викликає `ci.yml` (`uses: ./.github/workflows/ci.yml`). Потім job `deploy` (`needs` на CI, `concurrency: deploy` без скасування): `permissions: id-token: write, contents: read`; `aws-actions/configure-aws-credentials@v4` з `role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}` і `us-east-1`; `docker/setup-buildx-action@v3`; `make deploy-backend IMAGE_TAG=${{ github.sha }}`, `make migrate`, `make deploy-frontend`. |
+| `ci.yml` | `pull_request`; `push` to any branch except `main`; `workflow_call` | Job `backend`: `actions/setup-python@v5` (3.12), `pip install "./backend[dev]"`, `ruff check backend`, `ruff format --check backend`, `pytest` in `backend/` with a `postgres:16` service container and `TEST_DATABASE_URL`. Job `frontend`: `actions/setup-node@v4` (20.15.1), `npm ci`, `npm run lint`, `npm run format:check` in `frontend/`. No AWS access. |
+| `deploy.yml` | `push` to `main` | First calls `ci.yml` (`uses: ./.github/workflows/ci.yml`). Then the `deploy` job (`needs` on CI, `concurrency: deploy` without cancellation): `permissions: id-token: write, contents: read`; `aws-actions/configure-aws-credentials@v4` with `role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}` and `us-east-1`; `docker/setup-buildx-action@v3`; `make deploy-backend IMAGE_TAG=${{ github.sha }}`, `make migrate`, `make deploy-frontend`. |
 
-Repository variables GitHub (не secrets — у них немає секретів): `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_URL`, `LAMBDA_FUNCTION_NAME`, `API_URL`, `FRONTEND_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN`. Значення копіюються з `terraform output` один раз після першого apply.
+GitHub repository variables (not secrets — they contain no secrets): `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_URL`, `LAMBDA_FUNCTION_NAME`, `API_URL`, `FRONTEND_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `COGNITO_AUTHORITY`, `COGNITO_CLIENT_ID`, `COGNITO_DOMAIN`. The values are copied from `terraform output` once after the first apply.
 
 ## `docs/adr/`
 
-Навіщо: архітектурні рішення з контекстом і відкинутими альтернативами — щоб через пів року було видно, *чому* так. Формат як у Peach: статус, контекст, рішення, наслідки. Мова — українська. Новий ADR — коли змінюється будь-який контракт із цього документа.
+Purpose: architecture decisions with context and rejected alternatives, so that half a year later it is clear *why* things are the way they are. Format: status, context, decision, consequences. A new ADR is written whenever any contract in this document changes.
 
-| ADR | Рішення |
+| ADR | Decision |
 | --- | --- |
-| `0001-monorepo-layout.md` | Один репозиторій з `backend/`, `frontend/`, `infra/`; шари backend; Makefile як єдиний рецепт деплою. |
-| `0002-backend-on-lambda-function-url.md` | Lambda container image + function URL замість ECS/Fargate чи ALB: платимо за запити, один образ для API і міграцій. |
-| `0003-aurora-serverless-v2-scale-to-zero.md` | Aurora Serverless v2 0–1 ACU: ціна в простої проти холодного старту; пароль у змінній середовища замість Secrets Manager, бо без NAT для нього потрібен платний interface endpoint. |
-| `0004-cognito-jwks-in-env.md` | VPC без NAT → JWKS у `COGNITO_JWKS` на деплої; що робити при ротації ключів. |
-| `0005-money-in-kopecks-computed-balance.md` | Гроші — цілі копійки; баланс рахується, а не зберігається. |
-| `0006-time-zone-europe-kyiv.md` | `timestamptz` у БД, `Europe/Kyiv` для «сьогодні»/«місяця» і для відповідей API. |
-| `0007-roles-and-invite-codes.md` | Три ролі, одна на акаунт; учні й батьки отримують роль і доступ через одноразовий код, а не за email (у access token Cognito немає email). |
-| `0008-ai-grading-outside-the-vpc.md` | Оцінювач — окрема Lambda поза VPC з Claude Haiku 5.5 на Bedrock; без NAT і endpoints; оренда завдань і «без повторів» як захист від витрат. |
-| `0009-homework-photos-presigned.md` | Фото ДЗ напряму в S3 через presigned URL, підписані локально; локально — том і HMAC-посилання замість MinIO. |
-| `0010-quiz-generation-from-materials.md` | Тести з матеріалів генерує той самий воркер поза VPC; результат — лише чернетка, яку перевіряє репетитор; ліміт 3 незавершені генерації. |
-| `0011-tariffs-and-liqpay.md` | Безкоштовний і Pro; LiqPay, бо форму можна підписати без мережі; лише перегляд понад ліміт; скасування через воркер. |
+| `0001-monorepo-layout.md` | One repository with `backend/`, `frontend/`, `infra/`; backend layers; the Makefile as the single deployment recipe. |
+| `0002-backend-on-lambda-function-url.md` | A Lambda container image + function URL instead of ECS/Fargate or ALB: we pay per request, one image for the API and migrations. |
+| `0003-aurora-serverless-v2-scale-to-zero.md` | Aurora Serverless v2 0–1 ACU: idle cost versus cold start; the password in an environment variable instead of Secrets Manager, because without NAT it needs a paid interface endpoint. |
+| `0004-cognito-jwks-in-env.md` | A VPC without NAT → JWKS in `COGNITO_JWKS` at deployment; what to do when keys rotate. |
+| `0005-money-in-kopecks-computed-balance.md` | Money is whole kopecks; the balance is computed, not stored. |
+| `0006-time-zone-europe-kyiv.md` | `timestamptz` in the database, `Europe/Kyiv` for "today"/"month" and for API responses. |
+| `0007-roles-and-invite-codes.md` | Three roles, one per account; students and parents get their role and access through a one-time code, not by email (the Cognito access token has no email). |
+| `0008-ai-grading-outside-the-vpc.md` | The grader is a separate Lambda outside the VPC with Claude Haiku 5.5 on Bedrock; no NAT or endpoints; job leases and "no retries" as cost protection. |
+| `0009-homework-photos-presigned.md` | Homework photos go straight to S3 via locally signed presigned URLs; locally — a volume and HMAC links instead of MinIO. |
+| `0010-quiz-generation-from-materials.md` | Quizzes are generated from materials by the same worker outside the VPC; the result is only a draft the tutor checks; a limit of 3 unfinished generations. |
+| `0011-tariffs-and-liqpay.md` | Free and Pro; LiqPay, because the form can be signed without network access; read-only above the limit; cancellation through the worker. |
 
-Файли `0001`–`0006` ще не написані; `0007`–`0011` є.
+Files `0001`–`0006` are not written yet; `0007`–`0011` exist (in Ukrainian).
 
 ## README.md
 
 Purpose: the first page for a newcomer (in English). Sections: what it is and who it is for (with the live demo link and screenshots from `docs/screenshots/`), features, how to try it (online and locally with demo buttons), repository structure, how to deploy (short, linking to `infra/README.md`), developer commands, prototype limitations. Technical details live here, in `PROJECT.md`.
 
-## Відкриті питання
+## Open questions
 
-- **Email користувача.** Access token Cognito не містить `email`, а API Lambda без інтернету не може викликати `/oauth2/userInfo`, тож `users.email` на практиці порожній. Ім'я тепер задається через `PATCH /api/me`. Якщо email знадобиться репетитору (наприклад, у списку прив'язаних акаунтів) — pre-token-generation trigger у Cognito, окремим ADR.
-- **Чи покривають кредити AWS Claude на Bedrock.** Моделі Anthropic на Bedrock продаються через AWS Marketplace, а промокредити офіційно на Marketplace не поширюються; відгуки користувачів суперечливі. Тому: бюджет $1 з алертом, перевірка Cost Explorer після першого справжнього оцінювання і вимикач `AI_GRADER=off` / `GRADER=off`. Доступ до `anthropic.claude-haiku-5-5` може вимагати увімкнення в консолі Bedrock (Model access).
-- **Незавершені завантаження й видалені матеріали.** Фото, яке завантажили, але не здали, і файл видаленого матеріалу лишаються в S3. Обсяг малий (до 10 МБ на файл); якщо стане помітно — щоденне прибирання ключів без рядка в `submission_photos` / `materials`.
-- **Якість генерації на Haiku 5.5.** Для коротких конспектів її, найімовірніше, достатньо, але для довгих PDF чи складних тем варто порівняти з Claude Sonnet 5.5 чи Opus 5.5 (`GRADER_MODEL`); це дорожче, тож рішення за власницею проєкту. Чернетка однаково проходить через репетитора.
-- **Демо-вхід** (`DEV_AUTH`, `VITE_DEV_LOGIN`) — лише для локального перегляду. Обидва перемикачі вимкнені за замовчуванням; в AWS backend з `DEV_AUTH=on` не стартує.
+- **User email.** The Cognito access token does not contain `email`, and an API Lambda without internet cannot call `/oauth2/userInfo`, so `users.email` is empty in practice. The name is now set via `PATCH /api/me`. If the tutor needs the email (for example, in the list of linked accounts) — a pre-token-generation trigger in Cognito, as a separate ADR.
+- **Whether AWS credits cover Claude on Bedrock.** Anthropic models on Bedrock are sold through AWS Marketplace, and promotional credits officially do not apply to Marketplace; user reports are contradictory. Hence: a $1 budget with an alert, a Cost Explorer check after the first real grading, and the `AI_GRADER=off` / `GRADER=off` switch. Access to `anthropic.claude-haiku-5-5` may need to be enabled in the Bedrock console (Model access).
+- **Unfinished uploads and deleted materials.** A photo that was uploaded but not handed in, and the file of a deleted material, stay in S3. The volume is small (up to 10 MB per file); if it becomes noticeable — a daily cleanup of keys without a row in `submission_photos` / `materials`.
+- **Generation quality on Haiku 5.5.** For short notes it is most likely enough, but for long PDFs or complex topics it is worth comparing with Claude Sonnet 5.5 or Opus 5.5 (`GRADER_MODEL`); that is more expensive, so the decision is the project owner's. The draft goes through the tutor anyway.
+- **Demo sign-in** (`DEV_AUTH`, `VITE_DEV_LOGIN`) is only for local viewing. Both switches are off by default; in AWS the backend refuses to start with `DEV_AUTH=on`.
